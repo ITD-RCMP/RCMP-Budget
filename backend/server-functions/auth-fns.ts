@@ -7,7 +7,7 @@ type UserRow = {
   user_id: number;
   staff_id: number | null;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   department_id: number | null;
   department: string | null;
   designation: string | null;
@@ -66,6 +66,10 @@ export const login = createServerFn({ method: "POST" })
     const row = rows[0];
     if (!row) {
       throw new Error("Staff ID not found. Check your ID and try again.");
+    }
+
+    if (!row.password_hash) {
+      throw new Error("This account uses Microsoft sign-in. Continue with Microsoft instead.");
     }
 
     const ok = await bcrypt.compare(data.password, row.password_hash);
