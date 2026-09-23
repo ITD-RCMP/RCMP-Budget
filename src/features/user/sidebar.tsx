@@ -58,7 +58,7 @@ function SidebarNav({
       toast.error("Could not sign out. Please try again.");
       return;
     }
-    await navigate({ to: "/login" });
+    await navigate({ to: "/" });
   };
 
   return (
