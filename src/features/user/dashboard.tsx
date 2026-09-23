@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
-  ClipboardPen,
   History,
   type LucideIcon,
 } from "lucide-react";
@@ -34,11 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  listMyQuotations,
-  type QuotationListItem,
-} from "@backend/server-functions/quotation-fns";
-import { listMyBudgets, type BudgetListItem } from "@backend/server-functions/budget-fns";
+import { listMyBudgets } from "@backend/server-functions/budget-fns";
 import { isYearlyBudgetFormEnabled } from "@backend/server-functions/settings-fns";
 import {
   getUserDashboardStats,
@@ -46,13 +41,13 @@ import {
 } from "@backend/server-functions/user-dashboard-fns";
 
 type ActivityStatus = "Pending" | "Approved" | "Rejected";
-type TableTab = "all" | "budgets" | "quotations" | "history";
+type TableTab = "all" | "budgets" | "history";
 type StatusFilter = "All" | ActivityStatus;
 type DateFilter = "month" | "year" | "all";
 
 type DashboardRow = {
   key: string;
-  kind: "quotation" | "budget";
+  kind: "budget";
   title: string;
   ref: string;
   amount: number;
@@ -77,7 +72,6 @@ const PAGE_SIZE = 5;
 const tabs: { id: TableTab; label: string }[] = [
   { id: "all", label: "All Transaction" },
   { id: "budgets", label: "Yearly Budget" },
-  { id: "quotations", label: "Quotations" },
   { id: "history", label: "Transaction History" },
 ];
 
@@ -223,20 +217,10 @@ export function UserDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([listMyQuotations(), listMyBudgets()])
-      .then(([quotations, budgets]: [QuotationListItem[], BudgetListItem[]]) => {
+    listMyBudgets()
+      .then((budgets) => {
         if (!active) return;
         const merged: DashboardRow[] = [
-          ...quotations.map((row) => ({
-            key: `qt-${row.id}`,
-            kind: "quotation" as const,
-            title: row.title,
-            ref: `QT-${row.id}`,
-            amount: row.amount,
-            status: row.status,
-            createdAt: row.createdAt,
-            date: row.date,
-          })),
           ...budgets.map((row) => ({
             key: `yb-${row.id}`,
             kind: "budget" as const,
@@ -337,7 +321,6 @@ export function UserDashboard() {
   const filteredRows = useMemo(() => {
     const needle = query.toLowerCase().trim();
     return rows.filter((row) => {
-      if (tab === "quotations" && row.kind !== "quotation") return false;
       if (tab === "budgets" && row.kind !== "budget") return false;
       if (tab === "history" && row.status === "Pending") return false;
       if (statusFilter !== "All" && row.status !== statusFilter) return false;
@@ -401,9 +384,6 @@ export function UserDashboard() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled>
-                Request Quotation (Closed)
-              </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={!budgetFormEnabled}
                 onSelect={openBudgetForm}
@@ -623,7 +603,7 @@ export function UserDashboard() {
               <p className="mt-1 text-xs text-foreground/50">
                 Click to navigate to the page
               </p>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mt-5 grid grid-cols-3 gap-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -639,9 +619,6 @@ export function UserDashboard() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem disabled>
-                      Request Quotation (Closed)
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={!budgetFormEnabled}
                       onSelect={openBudgetForm}
@@ -651,18 +628,6 @@ export function UserDashboard() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                <button
-                  type="button"
-                  className="flex flex-col items-center gap-2 text-center transition hover:opacity-90"
-                >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ivory text-foreground/70">
-                    <ClipboardPen className="h-5 w-5" />
-                  </span>
-                  <span className="text-[11px] font-medium leading-tight text-foreground/70">
-                    Generate PRF
-                  </span>
-                </button>
 
                 <button
                   type="button"
@@ -718,7 +683,7 @@ export function UserDashboard() {
                   {tabs.find((item) => item.id === tab)?.label}
                 </h2>
                 <p className="mt-1 text-sm text-foreground/50">
-                  All your quotations and yearly budgets are recorded
+                  All your yearly budgets are recorded
                 </p>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -813,9 +778,7 @@ export function UserDashboard() {
                             <p className="mt-0.5 truncate text-xs text-foreground/45">
                               {row.ref}
                               {" · "}
-                              {row.kind === "quotation"
-                                ? "Quotation"
-                                : row.budgetType}
+                              {row.budgetType}
                             </p>
                           </div>
                         </div>
@@ -883,9 +846,7 @@ export function UserDashboard() {
                                   {row.title}
                                 </p>
                                 <p className="text-xs text-foreground/45">
-                                  {row.kind === "quotation"
-                                    ? "Quotation"
-                                    : row.budgetType}
+                                  {row.budgetType}
                                 </p>
                               </div>
                             </div>

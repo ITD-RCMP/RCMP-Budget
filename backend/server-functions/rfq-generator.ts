@@ -4,14 +4,6 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { authMiddleware } from "@backend/core/middleware";
 
-type FormRow = {
-  quotation_id: number;
-  created_at: Date | string;
-  email: string;
-  department: string | null;
-  designation: string | null;
-};
-
 type ItemRow = {
   item_name: string;
   item_description: string;
@@ -291,55 +283,6 @@ const rfqItemSchema = z.object({
 async function loadLogo() {
   return readFile(resolve(process.cwd(), "public/unikl.png"));
 }
-
-export const generateRequestForQuotation = createServerFn({ method: "POST" })
-  .validator(z.object({ quotationId: z.number().int().positive() }))
-  .middleware([authMiddleware])
-  .handler(async ({ data, context }) => {
-    const { user } = context;
-
-    const { query } = await import("@backend/core/db");
-    const rows = await query<FormRow[]>(
-      `SELECT q.quotation_id, q.created_at, u.email, d.department_name AS department, u.designation
-       FROM quotations q
-       INNER JOIN users u ON u.user_id = q.user_id
-       LEFT JOIN departments d ON d.department_id = u.department_id
-       WHERE q.quotation_id = ? AND q.user_id = ?
-       LIMIT 1`,
-      [data.quotationId, user.userId],
-    );
-    const form = rows[0];
-    if (!form) {
-      throw new Error("Quotation not found. Open it from History and try again.");
-    }
-
-    const items = await query<ItemRow[]>(
-      `SELECT item_name, item_description, item_quantity, item_price
-       FROM quotations_items
-       WHERE quotation_id = ?
-       ORDER BY quotation_item_id ASC`,
-      [data.quotationId],
-    );
-
-    const created = form.created_at instanceof Date ? form.created_at : new Date(form.created_at);
-    const rfqNumber = `RFQ-${String(form.quotation_id).padStart(5, "0")}`;
-    const rfqDate = created.toLocaleDateString("en-GB");
-    const logo = await loadLogo();
-
-    const pdfBuffer = await buildRfqPdf({
-      rfqNumber,
-      rfqDate,
-      email: form.email,
-      department: form.department ?? "",
-      items,
-      logo,
-    });
-
-    return {
-      fileName: `${rfqNumber}-request-for-quotation.pdf`,
-      data: pdfBuffer.toString("base64"),
-    };
-  });
 
 export const generateRfqFromForm = createServerFn({ method: "POST" })
   .validator(

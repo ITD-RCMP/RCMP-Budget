@@ -64,18 +64,6 @@ type CodeBudgetRow = {
   total: string | number;
 };
 
-function isPendingQuotation(statusName: string) {
-  if (statusName.includes("rejected")) return false;
-  if (
-    statusName === "approved_hod" ||
-    statusName === "approved_ceo" ||
-    statusName === "completed"
-  ) {
-    return false;
-  }
-  return true;
-}
-
 function isPendingBudget(statusName: string) {
   if (statusName.includes("rejected")) return false;
   if (statusName.includes("approved") || statusName === "completed") {
@@ -168,19 +156,6 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
     const spent = manualOut + approvedSpent;
     const remaining = allocation - spent;
 
-    const quotationMonthRows = await query<MonthRow[]>(
-      `SELECT DATE_FORMAT(q.created_at, '%Y-%m') AS month_key,
-              COALESCE(SUM(qi.item_price * qi.item_quantity), 0) AS total
-       FROM quotations q
-       INNER JOIN quotation_statuses qs ON qs.status_id = q.status_id
-       LEFT JOIN quotations_items qi ON qi.quotation_id = q.quotation_id
-       WHERE q.user_id = ?
-         AND q.created_at >= ?
-         AND qs.status_name NOT LIKE '%rejected%'
-       GROUP BY DATE_FORMAT(q.created_at, '%Y-%m')`,
-      [user.userId, rangeStartSql],
-    );
-
     const budgetMonthRows = await query<MonthRow[]>(
       `SELECT DATE_FORMAT(yb.created_at, '%Y-%m') AS month_key,
               COALESCE(SUM(yb.budget_amount), 0) AS total
@@ -194,7 +169,7 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
     );
 
     const monthTotals = new Map<string, number>();
-    for (const row of [...quotationMonthRows, ...budgetMonthRows]) {
+    for (const row of budgetMonthRows) {
       monthTotals.set(row.month_key, (monthTotals.get(row.month_key) ?? 0) + Number(row.total));
     }
 
@@ -208,14 +183,6 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
       });
     }
 
-    const quotationRows = await query<{ status_name: string }[]>(
-      `SELECT qs.status_name
-       FROM quotations q
-       INNER JOIN quotation_statuses qs ON qs.status_id = q.status_id
-       WHERE q.user_id = ?`,
-      [user.userId],
-    );
-
     const budgetRows = await query<{ status_name: string }[]>(
       `SELECT qs.status_name
        FROM yearly_budgets yb
@@ -224,9 +191,7 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
       [user.userId],
     );
 
-    const pendingCount =
-      quotationRows.filter((row) => isPendingQuotation(row.status_name)).length +
-      budgetRows.filter((row) => isPendingBudget(row.status_name)).length;
+    const pendingCount = budgetRows.filter((row) => isPendingBudget(row.status_name)).length;
 
     const codeParams: unknown[] = [budgetYear];
     let codeFilter = "";

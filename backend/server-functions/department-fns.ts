@@ -42,16 +42,6 @@ export type DepartmentBudgetDetail = {
   designation: string | null;
 };
 
-export type DepartmentQuotationListItem = {
-  id: number;
-  title: string;
-  requester: string;
-  amount: number;
-  date: string;
-  status: "Pending" | "Approved" | "Rejected";
-  statusName: string;
-};
-
 type BudgetRow = {
   budget_id: number;
   budget_ref?: string | null;
@@ -83,31 +73,9 @@ type BudgetItemRow = {
   budget_amount: string | number;
 };
 
-type QuotationRow = {
-  quotation_id: number;
-  status_name: string;
-  created_at: Date | string;
-  item_count: number;
-  total_amount: string | number;
-  first_item: string | null;
-  requester_email: string;
-};
-
 function mapBudgetStatus(statusName: string): DepartmentBudgetStatus {
   if (statusName.includes("rejected")) return "Rejected";
   if (statusName.includes("approved") || statusName === "completed") {
-    return "Approved";
-  }
-  return "Pending";
-}
-
-function mapQuotationStatus(statusName: string): DepartmentQuotationListItem["status"] {
-  if (statusName.includes("rejected")) return "Rejected";
-  if (
-    statusName === "approved_hod" ||
-    statusName === "approved_ceo" ||
-    statusName === "completed"
-  ) {
     return "Approved";
   }
   return "Pending";
@@ -120,12 +88,6 @@ function formatDate(value: Date | string) {
     month: "short",
     year: "numeric",
   });
-}
-
-function formatTitle(firstItem: string | null, itemCount: number) {
-  if (!firstItem) return "Quotation request";
-  if (itemCount <= 1) return firstItem;
-  return `${firstItem} + ${itemCount - 1} more`;
 }
 
 function toBudgetItem(row: BudgetItemRow): DepartmentBudgetItem {
@@ -177,19 +139,6 @@ function departmentBudgetScope(user: AuthUser) {
   }
   return {
     filter: "AND yb.created_by = ?",
-    params: [user.userId] as unknown[],
-  };
-}
-
-function departmentQuotationScope(user: AuthUser) {
-  if (user.departmentId != null) {
-    return {
-      filter: "AND u.department_id = ?",
-      params: [user.departmentId] as unknown[],
-    };
-  }
-  return {
-    filter: "AND u.user_id = ?",
     params: [user.userId] as unknown[],
   };
 }
@@ -286,51 +235,4 @@ export const listDepartmentBudgetReport = createServerFn({ method: "GET" })
     }
 
     return rows.map((row) => toBudgetDetail(row, itemsByBudget.get(row.budget_id) ?? []));
-  });
-
-export const listDepartmentQuotations = createServerFn({
-  method: "GET",
-})
-  .middleware([userOnly])
-  .handler(async ({ context }): Promise<DepartmentQuotationListItem[]> => {
-    const { user } = context;
-
-    const { query } = await import("@backend/core/db");
-    const scope = departmentQuotationScope(user);
-
-    const rows = await query<QuotationRow[]>(
-      `SELECT
-         q.quotation_id,
-         qs.status_name,
-         q.created_at,
-         COUNT(qi.quotation_item_id) AS item_count,
-         COALESCE(SUM(qi.item_price * qi.item_quantity), 0) AS total_amount,
-         (
-           SELECT qi2.item_name
-           FROM quotations_items qi2
-           WHERE qi2.quotation_id = q.quotation_id
-           ORDER BY qi2.quotation_item_id ASC
-           LIMIT 1
-         ) AS first_item,
-         u.email AS requester_email
-       FROM quotations q
-       INNER JOIN quotation_statuses qs ON qs.status_id = q.status_id
-       INNER JOIN users u ON u.user_id = q.user_id
-       LEFT JOIN quotations_items qi ON qi.quotation_id = q.quotation_id
-       WHERE 1 = 1
-       ${scope.filter}
-       GROUP BY q.quotation_id, qs.status_name, q.created_at, u.email
-       ORDER BY q.created_at DESC`,
-      scope.params,
-    );
-
-    return rows.map((row) => ({
-      id: row.quotation_id,
-      title: formatTitle(row.first_item, Number(row.item_count)),
-      requester: row.requester_email,
-      amount: Number(row.total_amount),
-      date: formatDate(row.created_at),
-      status: mapQuotationStatus(row.status_name),
-      statusName: row.status_name,
-    }));
   });

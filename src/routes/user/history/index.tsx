@@ -8,7 +8,7 @@ export const Route = createFileRoute("/user/history/")({
       {
         name: "description",
         content:
-          "Review quotations and department yearly budgets in one place.",
+          "Review department yearly budgets in one place.",
       },
     ],
   }),

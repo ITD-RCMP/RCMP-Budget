@@ -11,7 +11,6 @@ import {
   Minus,
   Pencil,
   Plus,
-  Receipt,
   Wallet,
   X,
   type LucideIcon,
@@ -41,11 +40,6 @@ import {
   type HodBudgetDetail,
   type HodBudgetItem,
 } from "@backend/server-functions/hod-budget-fns";
-import {
-  listHodQuotations,
-  reviewHodQuotation,
-  type HodQuotationListItem,
-} from "@backend/server-functions/hod-quotation-fns";
 import {
   UpdateApprovedBudgetForm,
   type UpdateApprovedBudgetPayload,
@@ -146,7 +140,7 @@ function buildYearOptions(yearsWithData: number[]) {
   );
 }
 
-type ReportView = "opex" | "capex" | "requisitions";
+type ReportView = "opex" | "capex";
 
 function formatRm(value: number) {
   return value.toLocaleString("en-MY", {
@@ -409,9 +403,7 @@ export function HodReportPage() {
   const [yearChoices, setYearChoices] = useState(defaultYearOptions);
   const [yearReady, setYearReady] = useState(false);
   const [budgets, setBudgets] = useState<HodBudgetDetail[]>([]);
-  const [requisitions, setRequisitions] = useState<HodQuotationListItem[]>([]);
   const [loadingBudgets, setLoadingBudgets] = useState(true);
-  const [loadingRequisitions, setLoadingRequisitions] = useState(true);
   const [maximized, setMaximized] = useState(false);
   const [reviewingKey, setReviewingKey] = useState<string | null>(null);
   const [rejectBudget, setRejectBudget] = useState<HodBudgetDetail | null>(
@@ -487,28 +479,6 @@ export function HodReportPage() {
       active = false;
     };
   }, [budgetYear, yearReady]);
-
-  useEffect(() => {
-    let active = true;
-    listHodQuotations()
-      .then((rows) => {
-        if (active) setRequisitions(rows);
-      })
-      .catch((error) => {
-        if (!active) return;
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Could not load requisitions. Try again.",
-        );
-      })
-      .finally(() => {
-        if (active) setLoadingRequisitions(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const opexRows = useMemo(
     () =>
@@ -711,54 +681,12 @@ export function HodReportPage() {
     }
   };
 
-  const reviewQuotation = async (
-    id: number,
-    decision: "Approved" | "Rejected",
-  ) => {
-    const key = `qt-${id}`;
-    if (reviewingKey != null) return;
-    setReviewingKey(key);
-    const toastId = toast.loading(
-      decision === "Approved"
-        ? `Approving QT-${id}…`
-        : `Rejecting QT-${id}…`,
-    );
-    try {
-      const updated = await reviewHodQuotation({
-        data: { quotationId: id, decision },
-      });
-      setRequisitions((prev) =>
-        prev.map((req) => (req.id === id ? updated : req)),
-      );
-      toast.success(`QT-${id} ${decision.toLowerCase()}`, {
-        id: toastId,
-        description:
-          decision === "Approved"
-            ? "The request can continue to the next step."
-            : "The requester can see this rejection in their history.",
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : `Could not update QT-${id}. Try again.`,
-        { id: toastId },
-      );
-    } finally {
-      setReviewingKey(null);
-    }
-  };
-
   const opexItemCount = opexRows.reduce(
     (sum, row) => sum + Math.max(row.items.length, 1),
     0,
   );
   const opexTotal = opexRows.reduce((sum, row) => sum + row.amount, 0);
   const capexTotal = capexRows.reduce((sum, row) => sum + row.amount, 0);
-  const requisitionTotal = requisitions.reduce(
-    (sum, row) => sum + row.amount,
-    0,
-  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
@@ -769,7 +697,7 @@ export function HodReportPage() {
           <div>
             <h1 className="font-display text-4xl">Reports</h1>
             <p className="mt-2 text-sm text-foreground/60">
-              Department OPEX, CAPEX, and quotation requisitions in one view.
+              Department OPEX and CAPEX in one view.
             </p>
           </div>
           <div className="w-40">
@@ -788,7 +716,7 @@ export function HodReportPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
           <SummaryStat
             label={`OPEX FY ${budgetYear}`}
             value={`RM ${formatRm(opexTotal)}`}
@@ -804,14 +732,6 @@ export function HodReportPage() {
             icon={ArrowUpRight}
             active={view === "capex"}
             onClick={() => setView("capex")}
-          />
-          <SummaryStat
-            label="Requisitions"
-            value={`RM ${formatRm(requisitionTotal)}`}
-            hint={`${requisitions.length} request${requisitions.length === 1 ? "" : "s"}`}
-            icon={Receipt}
-            active={view === "requisitions"}
-            onClick={() => setView("requisitions")}
           />
         </div>
 
@@ -921,39 +841,6 @@ export function HodReportPage() {
             </>
           )}
 
-          {view === "requisitions" && (
-            <>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <ReportSectionTitle>Quotation Requisitions</ReportSectionTitle>
-                <MaximizeButton
-                  maximized={maximized}
-                  onClick={() => setMaximized((value) => !value)}
-                />
-              </div>
-              <div
-                className={cn(
-                  maximized && "min-h-0 flex-1 overflow-auto",
-                )}
-              >
-                {loadingRequisitions ? (
-                  <LoadingState message="Loading requisitions…" />
-                ) : requisitions.length === 0 ? (
-                  <EmptyState
-                    message="No requisitions submitted yet."
-                    maximized={maximized}
-                  />
-                ) : (
-                  <RequisitionTable
-                    rows={requisitions}
-                    total={requisitionTotal}
-                    reviewingKey={reviewingKey}
-                    onApprove={(id) => void reviewQuotation(id, "Approved")}
-                    onReject={(id) => void reviewQuotation(id, "Rejected")}
-                  />
-                )}
-              </div>
-            </>
-          )}
         </div>
       </main>
 
@@ -1321,47 +1208,6 @@ function BudgetActions({
         className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-800 transition hover:brightness-95 disabled:opacity-50"
       >
         <Pencil className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-function QuotationActions({
-  status,
-  reviewing,
-  onApprove,
-  onReject,
-}: {
-  status: HodQuotationListItem["status"];
-  reviewing: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  if (status !== "Pending") {
-    return <span className="text-xs text-foreground/40">—</span>;
-  }
-
-  return (
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        type="button"
-        onClick={onApprove}
-        disabled={reviewing}
-        aria-label="Approve"
-        title="Approve"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:brightness-95 disabled:opacity-50"
-      >
-        <Check className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={onReject}
-        disabled={reviewing}
-        aria-label="Reject"
-        title="Reject"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 transition hover:brightness-95 disabled:opacity-50"
-      >
-        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -2878,106 +2724,6 @@ function CapexTable({
             </td>
             <td
               colSpan={4}
-              className="border border-foreground/15 px-3 py-3"
-            />
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  );
-}
-
-function RequisitionTable({
-  rows,
-  total,
-  reviewingKey,
-  onApprove,
-  onReject,
-}: {
-  rows: HodQuotationListItem[];
-  total: number;
-  reviewingKey: string | null;
-  onApprove: (id: number) => void;
-  onReject: (id: number) => void;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-xl border border-foreground/15">
-      <table className="min-w-[1100px] w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-[#ebe6dc] text-center text-xs font-semibold uppercase tracking-wide">
-            <th className="border border-foreground/20 px-3 py-3">No.</th>
-            <th className="border border-foreground/20 px-3 py-3">Ref</th>
-            <th className="border border-foreground/20 px-3 py-3 text-left">
-              Item / request
-            </th>
-            <th className="border border-foreground/20 px-3 py-3 text-left">
-              Requester
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">
-              Submitted
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">
-              Amount (RM)
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">Status</th>
-            <th className="border border-foreground/20 px-3 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.id} className="align-top odd:bg-background even:bg-ivory/40">
-              <td className="border border-foreground/15 px-3 py-3 text-center tabular-nums">
-                {index + 1}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center font-medium">
-                QT-{row.id}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3">
-                {row.title}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3">
-                {row.requester}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
-                {row.date}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-right font-medium tabular-nums">
-                {formatRm(row.amount)}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-                    statusTone(row.status),
-                  )}
-                >
-                  {row.status}
-                </span>
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
-                <QuotationActions
-                  status={row.status}
-                  reviewing={reviewingKey === `qt-${row.id}`}
-                  onApprove={() => onApprove(row.id)}
-                  onReject={() => onReject(row.id)}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="bg-[#ebe6dc] font-medium">
-            <td
-              colSpan={5}
-              className="border border-foreground/15 px-3 py-3 text-right"
-            >
-              Total requisitions
-            </td>
-            <td className="border border-foreground/15 px-3 py-3 text-right tabular-nums">
-              {formatRm(total)}
-            </td>
-            <td
-              colSpan={2}
               className="border border-foreground/15 px-3 py-3"
             />
           </tr>
