@@ -30,6 +30,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   createHodBudget,
   listHodBudgetReport,
   listHodBudgetYears,
@@ -1136,6 +1142,44 @@ function DetailOverlay({
   );
 }
 
+function ActionIconButton({
+  label,
+  description,
+  disabled,
+  onClick,
+  className,
+  children,
+}: {
+  label: string;
+  description: string;
+  disabled?: boolean;
+  onClick: () => void;
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={label}
+          className={cn(
+            "inline-flex h-8 w-8 items-center justify-center rounded-full transition hover:brightness-95 disabled:opacity-50",
+            className,
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="z-[60]">
+        {description}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function BudgetActions({
   row,
   reviewing,
@@ -1154,62 +1198,59 @@ function BudgetActions({
   onUpdateBudget: () => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-1.5">
-      {row.status === "Pending" && (
-        <>
-          <button
-            type="button"
-            onClick={onApprove}
-            disabled={reviewing}
-            aria-label="Approve"
-            title="Approve"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:brightness-95 disabled:opacity-50"
-          >
-            <Check className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onReject}
-            disabled={reviewing}
-            aria-label="Reject"
-            title="Reject"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 transition hover:brightness-95 disabled:opacity-50"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onTransfer}
-            disabled={reviewing}
-            aria-label="Transfer"
-            title="Transfer"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-800 transition hover:brightness-95 disabled:opacity-50"
-          >
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-          </button>
-        </>
-      )}
-      <button
-        type="button"
-        onClick={onUpdateBudget}
-        disabled={reviewing}
-        aria-label="Update budget"
-        title="Update budget"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-lime/70 text-lime-foreground transition hover:brightness-95 disabled:opacity-50"
-      >
-        <Wallet className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={onEdit}
-        disabled={reviewing}
-        aria-label="Edit"
-        title="Edit"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-800 transition hover:brightness-95 disabled:opacity-50"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center justify-center gap-1.5">
+        {row.status === "Pending" && (
+          <>
+            <ActionIconButton
+              label="Approve"
+              description="Approve — accept this budget request"
+              disabled={reviewing}
+              onClick={onApprove}
+              className="bg-emerald-100 text-emerald-700"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </ActionIconButton>
+            <ActionIconButton
+              label="Reject"
+              description="Reject — send this budget back"
+              disabled={reviewing}
+              onClick={onReject}
+              className="bg-red-100 text-red-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </ActionIconButton>
+            <ActionIconButton
+              label="Transfer"
+              description="Transfer — move this budget to another type"
+              disabled={reviewing}
+              onClick={onTransfer}
+              className="bg-sky-100 text-sky-800"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+            </ActionIconButton>
+          </>
+        )}
+        <ActionIconButton
+          label="Update budget"
+          description="Update budget — change the approved amount"
+          disabled={reviewing}
+          onClick={onUpdateBudget}
+          className="bg-lime/70 text-lime-foreground"
+        >
+          <Wallet className="h-3.5 w-3.5" />
+        </ActionIconButton>
+        <ActionIconButton
+          label="Edit"
+          description="Edit — change the budget details"
+          disabled={reviewing}
+          onClick={onEdit}
+          className="bg-amber-100 text-amber-800"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </ActionIconButton>
+      </div>
+    </TooltipProvider>
   );
 }
 

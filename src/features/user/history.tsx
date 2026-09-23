@@ -34,6 +34,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   getMyBudget,
   listMyBudgets,
   resubmitYearlyBudget,
@@ -1073,26 +1079,156 @@ function BudgetDetailCard({
         </div>
       ) : (
         <>
+          {detail.isMine && !formEnabled && (
+            <div className="mb-4 rounded-[1.5rem] bg-background px-6 py-5 text-sm text-foreground/55 shadow-card">
+              Yearly budget submissions are closed. You can still update
+              amounts. Edit opens again when your admin reopens them.
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-[1.5rem] bg-background shadow-card">
             <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="p-6 md:p-8">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide uppercase",
-                      isCapex
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-sky-100 text-sky-800",
-                    )}
-                  >
-                    {detail.budgetType}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${tone}`}
-                  >
-                    <StatusIcon className="h-3.5 w-3.5" />
-                    {detail.status}
-                  </span>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide uppercase",
+                        isCapex
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-sky-100 text-sky-800",
+                      )}
+                    >
+                      {detail.budgetType}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${tone}`}
+                    >
+                      <StatusIcon className="h-3.5 w-3.5" />
+                      {detail.status}
+                    </span>
+                  </div>
+                  {(canEdit ||
+                    canDelete ||
+                    canTransfer ||
+                    canUpdateBudget) && (
+                    <TooltipProvider delayDuration={200}>
+                      <div className="flex items-center gap-1.5">
+                        {canEdit && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={startEdit}
+                                disabled={deleting || transferring || updating}
+                                aria-label="Edit form"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-800 transition hover:brightness-95 disabled:opacity-50"
+                              >
+                                <ClipboardPen className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              Edit form — change the budget details
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canUpdateBudget && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => setUpdateOpen(true)}
+                                disabled={deleting || transferring || updating}
+                                aria-label="Update budget"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-lime/70 text-lime-foreground transition hover:brightness-95 disabled:opacity-50"
+                              >
+                                <Wallet className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              Update budget — change the approved amount
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canTransfer && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => setTransferOpen(true)}
+                                disabled={deleting || transferring}
+                                aria-label="Transfer"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-800 transition hover:brightness-95 disabled:opacity-50"
+                              >
+                                <ArrowRightLeft className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              Transfer — move this budget to another type
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canDelete && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => void handleDelete()}
+                                disabled={deleting || transferring}
+                                aria-label={
+                                  confirmDelete
+                                    ? isResubmit
+                                      ? "Confirm remove"
+                                      : "Confirm delete"
+                                    : isResubmit
+                                      ? "Remove"
+                                      : "Delete"
+                                }
+                                className={cn(
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:brightness-95 disabled:opacity-50",
+                                  confirmDelete
+                                    ? "bg-red-600 text-white"
+                                    : "bg-red-100 text-red-600",
+                                )}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {deleting
+                                ? isResubmit
+                                  ? "Removing…"
+                                  : "Deleting…"
+                                : confirmDelete
+                                  ? isResubmit
+                                    ? "Click again to confirm remove"
+                                    : "Click again to confirm delete"
+                                  : isResubmit
+                                    ? "Remove — discard this draft"
+                                    : "Delete — remove this budget"}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {canDelete && confirmDelete && !deleting && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(false)}
+                                aria-label="Cancel"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-foreground/5 text-foreground/60 transition hover:bg-ivory hover:text-foreground"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              Cancel — keep this budget
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </TooltipProvider>
+                  )}
                 </div>
                 <h1 className="mt-4 font-display text-4xl leading-tight">
                   {title}
@@ -1280,83 +1416,6 @@ function BudgetDetailCard({
               />
             </div>
           </section>
-
-          {detail.isMine && !formEnabled && (
-            <div className="mt-4 rounded-[1.5rem] bg-background px-6 py-5 text-sm text-foreground/55 shadow-card">
-              Yearly budget submissions are closed. You can still update
-              amounts. Edit opens again when your admin reopens them.
-            </div>
-          )}
-
-          {canEdit || canDelete || canTransfer || canUpdateBudget ? (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-[1.5rem] bg-background px-6 py-5 shadow-card">
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={startEdit}
-                  disabled={deleting || transferring || updating}
-                  className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-2.5 text-sm font-medium transition hover:bg-ivory disabled:opacity-50"
-                >
-                  <ClipboardPen className="h-4 w-4" />
-                  Edit form
-                </button>
-              )}
-              {canUpdateBudget && (
-                <button
-                  type="button"
-                  onClick={() => setUpdateOpen(true)}
-                  disabled={deleting || transferring || updating}
-                  className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-2.5 text-sm font-medium transition hover:bg-ivory disabled:opacity-50"
-                >
-                  <Wallet className="h-4 w-4" />
-                  Update budget
-                </button>
-              )}
-              {canTransfer && (
-                <button
-                  type="button"
-                  onClick={() => setTransferOpen(true)}
-                  disabled={deleting || transferring}
-                  className="group inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-5 py-2.5 text-sm font-medium text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-100 hover:shadow-md disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
-                >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-200/70 text-sky-700">
-                    <ArrowRightLeft className="h-3.5 w-3.5" />
-                  </span>
-                  Transfer
-                </button>
-              )}
-              {canDelete && (
-                <button
-                  type="button"
-                  onClick={() => void handleDelete()}
-                  disabled={deleting || transferring}
-                  className="inline-flex items-center gap-2 rounded-full border border-red-200 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {deleting
-                    ? isResubmit
-                      ? "Removing…"
-                      : "Deleting…"
-                    : confirmDelete
-                      ? isResubmit
-                        ? "Confirm remove"
-                        : "Confirm delete"
-                      : isResubmit
-                        ? "Remove"
-                        : "Delete"}
-                </button>
-              )}
-              {canDelete && confirmDelete && !deleting && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-foreground/60 transition hover:bg-ivory hover:text-foreground"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          ) : null}
         </>
       )}
 
