@@ -396,19 +396,19 @@ export function UserDashboard() {
         </div>
 
         <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
-          <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] bg-foreground p-5 text-background shadow-card sm:p-6">
-            <div className="pointer-events-none absolute -top-10 -right-8 h-40 w-40 rounded-full bg-lime/25" />
-            <div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-lime/10" />
+          <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] bg-background p-5 text-foreground shadow-card sm:p-6">
+            <div className="pointer-events-none absolute -top-10 -right-8 h-40 w-40 rounded-full bg-lime/40" />
+            <div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-lime/20" />
             <div className="relative flex items-start justify-between">
-              <div className="flex min-w-0 items-center gap-2 text-background/70">
+              <div className="flex min-w-0 items-center gap-2 text-foreground/55">
                 <CreditCard className="h-5 w-5 shrink-0" />
                 <p className="truncate text-sm tracking-[0.18em]">
                   •••• •••• {staffSuffix}
                 </p>
               </div>
-              <Wifi className="h-5 w-5 shrink-0 rotate-90 text-lime" />
+              <Wifi className="h-5 w-5 shrink-0 rotate-90 text-lime-foreground" />
             </div>
-            <p className="relative mt-8 text-xs text-background/55">
+            <p className="relative mt-8 text-xs text-foreground/55">
               Remaining budget
             </p>
             <div className="relative mt-1 flex min-w-0 items-center gap-2">
@@ -423,7 +423,7 @@ export function UserDashboard() {
                 type="button"
                 onClick={() => toggle("money")}
                 aria-label={moneyRevealed ? "Hide amounts" : "Show amounts"}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-background/60 transition hover:bg-background/10 hover:text-background"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-foreground/55 transition hover:bg-ivory hover:text-foreground"
               >
                 {moneyRevealed ? (
                   <EyeOff className="h-4 w-4" />
@@ -437,7 +437,12 @@ export function UserDashboard() {
                 <p className="truncate text-sm font-medium">
                   {dashboardStats?.displayName ?? "Staff"}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-background/55">
+                {dashboardStats?.fullName ? (
+                  <p className="mt-0.5 truncate text-sm text-foreground/80">
+                    {dashboardStats.fullName}
+                  </p>
+                ) : null}
+                <p className="mt-0.5 truncate text-xs text-foreground/55">
                   {dashboardStats?.departmentName ?? "No department"}
                   {" · "}
                   FY {dashboardStats?.budgetYear ?? new Date().getFullYear()}

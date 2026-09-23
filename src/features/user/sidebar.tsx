@@ -7,7 +7,6 @@ import {
   Menu,
   Building2,
   type LucideIcon,
-  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Wordmark } from "@/components/landing/Nav";
@@ -26,7 +25,6 @@ const items: { label: string; icon: LucideIcon; to?: LinkProps["to"] }[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/user" },
   { label: "My Department", icon: Building2, to: "/user/department" },
   { label: "History", icon: FileText, to: "/user/history" },
-  { label: "Account", icon: User, to: "/user/profile" },
 ];
 
 const itemClass =

@@ -14,11 +14,12 @@ type UserRow = {
   role_name: string;
 };
 
-function toAuthUser(row: UserRow): AuthUser {
+function toAuthUser(row: UserRow, fullName: string | null = null): AuthUser {
   return {
     userId: row.user_id,
     staffId: row.staff_id,
     email: row.email,
+    fullName,
     departmentId: row.department_id,
     department: row.department,
     designation: row.designation,
@@ -51,7 +52,7 @@ export const getCurrentUser = createServerFn({ method: "GET" }).handler(
       return null;
     }
 
-    const user = toAuthUser(row);
+    const user = toAuthUser(row, current.fullName ?? null);
     await session.update({ user });
     return user;
   },
@@ -121,7 +122,7 @@ export const devLoginAsRole = createServerFn({ method: "POST" })
       throw new Error(`No ${data.role} account found in the database. Add one first.`);
     }
 
-    const user = toAuthUser(row);
+    const user = toAuthUser(row, null);
     await query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = ?", [
       user.userId,
     ]);

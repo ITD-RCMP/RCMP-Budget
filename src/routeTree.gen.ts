@@ -16,7 +16,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserIndexRouteImport } from './routes/user/index'
 import { Route as HodIndexRouteImport } from './routes/hod/index'
 import { Route as UserRfqRouteImport } from './routes/user/rfq'
-import { Route as UserProfileRouteImport } from './routes/user/profile'
 import { Route as UserDepartmentRouteImport } from './routes/user/department'
 import { Route as UserCalendarRouteImport } from './routes/user/calendar'
 import { Route as UserBudgetRouteImport } from './routes/user/budget'
@@ -62,11 +61,6 @@ const HodIndexRoute = HodIndexRouteImport.update({
 const UserRfqRoute = UserRfqRouteImport.update({
   id: '/rfq',
   path: '/rfq',
-  getParentRoute: () => UserRouteRoute,
-} as any)
-const UserProfileRoute = UserProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
   getParentRoute: () => UserRouteRoute,
 } as any)
 const UserDepartmentRoute = UserDepartmentRouteImport.update({
@@ -138,7 +132,6 @@ export interface FileRoutesByFullPath {
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
-  '/user/profile': typeof UserProfileRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
@@ -156,7 +149,6 @@ export interface FileRoutesByTo {
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
-  '/user/profile': typeof UserProfileRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod': typeof HodIndexRoute
   '/user': typeof UserIndexRoute
@@ -178,7 +170,6 @@ export interface FileRoutesById {
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
-  '/user/profile': typeof UserProfileRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
@@ -201,7 +192,6 @@ export interface FileRouteTypes {
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
-    | '/user/profile'
     | '/user/rfq'
     | '/hod/'
     | '/user/'
@@ -219,7 +209,6 @@ export interface FileRouteTypes {
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
-    | '/user/profile'
     | '/user/rfq'
     | '/hod'
     | '/user'
@@ -240,7 +229,6 @@ export interface FileRouteTypes {
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
-    | '/user/profile'
     | '/user/rfq'
     | '/hod/'
     | '/user/'
@@ -306,13 +294,6 @@ declare module '@tanstack/react-router' {
       path: '/rfq'
       fullPath: '/user/rfq'
       preLoaderRoute: typeof UserRfqRouteImport
-      parentRoute: typeof UserRouteRoute
-    }
-    '/user/profile': {
-      id: '/user/profile'
-      path: '/profile'
-      fullPath: '/user/profile'
-      preLoaderRoute: typeof UserProfileRouteImport
       parentRoute: typeof UserRouteRoute
     }
     '/user/department': {
@@ -433,7 +414,6 @@ interface UserRouteRouteChildren {
   UserBudgetRoute: typeof UserBudgetRoute
   UserCalendarRoute: typeof UserCalendarRoute
   UserDepartmentRoute: typeof UserDepartmentRoute
-  UserProfileRoute: typeof UserProfileRoute
   UserRfqRoute: typeof UserRfqRoute
   UserIndexRoute: typeof UserIndexRoute
 }
@@ -443,7 +423,6 @@ const UserRouteRouteChildren: UserRouteRouteChildren = {
   UserBudgetRoute: UserBudgetRoute,
   UserCalendarRoute: UserCalendarRoute,
   UserDepartmentRoute: UserDepartmentRoute,
-  UserProfileRoute: UserProfileRoute,
   UserRfqRoute: UserRfqRoute,
   UserIndexRoute: UserIndexRoute,
 }

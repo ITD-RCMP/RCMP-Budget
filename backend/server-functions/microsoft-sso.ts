@@ -18,9 +18,10 @@ type UserRow = {
 type MicrosoftProfile = {
   oid: string;
   email: string;
+  fullName: string | null;
 };
 
-const MICROSOFT_SCOPES = "openid profile email";
+const MICROSOFT_SCOPES = "openid profile email User.Read";
 
 const USER_SELECT = `SELECT u.user_id, u.staff_id, u.email, u.oid, u.department_id,
        d.department_name AS department, u.designation, u.role_id, r.role_name
@@ -28,11 +29,12 @@ FROM users u
 INNER JOIN roles r ON r.role_id = u.role_id
 LEFT JOIN departments d ON d.department_id = u.department_id`;
 
-function toAuthUser(row: UserRow): AuthUser {
+function toAuthUser(row: UserRow, fullName: string | null = null): AuthUser {
   return {
     userId: row.user_id,
     staffId: row.staff_id,
     email: row.email,
+    fullName,
     departmentId: row.department_id,
     department: row.department,
     designation: row.designation,
@@ -161,19 +163,23 @@ async function fetchMicrosoftProfile(
     asString(claims?.preferred_username) ||
     asString(claims?.upn) ||
     asString(claims?.unique_name);
+  let fullName = asString(claims?.name) || null;
 
-  if (tokenJson.access_token && (!oid || !email)) {
-    const meRes = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: { authorization: `Bearer ${tokenJson.access_token}` },
-    });
+  if (tokenJson.access_token) {
+    const meRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName",
+      { headers: { authorization: `Bearer ${tokenJson.access_token}` } },
+    );
     if (meRes.ok) {
       const me = (await meRes.json()) as {
         id?: string;
+        displayName?: string | null;
         mail?: string | null;
         userPrincipalName?: string | null;
       };
       oid = asString(me.id) || oid;
       email = asString(me.mail) || asString(me.userPrincipalName) || email;
+      fullName = asString(me.displayName) || fullName;
     }
   }
 
@@ -181,7 +187,7 @@ async function fetchMicrosoftProfile(
     throw new Error("Microsoft did not return your account details. Try again.");
   }
 
-  return { oid, email };
+  return { oid, email, fullName };
 }
 
 export async function startMicrosoftSso() {
@@ -248,7 +254,7 @@ export async function completeMicrosoftSso(input: { code: string; state: string 
     [profile.oid, row.user_id],
   );
 
-  const user = toAuthUser(row);
+  const user = toAuthUser(row, profile.fullName);
   await session.update({ user, msOAuth: undefined });
   return user;
 }

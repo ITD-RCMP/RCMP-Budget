@@ -40,6 +40,7 @@ export type HodDashboardStats = FinanceOverview & {
   departmentName: string | null;
   staffId: number | null;
   displayName: string;
+  fullName: string | null;
   lastYearAllocation: number;
   requestedCapex: number;
   requestedOpex: number;
@@ -241,12 +242,21 @@ export const getHodDashboardStats = createServerFn({ method: "GET" })
     }));
     const totalCodeBudget = codeBudgets.reduce((sum, row) => sum + row.amount, 0);
 
+    const { resolveUserFullName } = await import(
+      "@backend/server-functions/microsoft-graph"
+    );
+    const fullName = await resolveUserFullName({
+      userId: user.userId,
+      sessionFullName: user.fullName,
+    });
+
     return {
       ...overview,
       departmentName: user.department,
       staffId: user.staffId,
       displayName:
         user.designation?.trim() || user.email.split("@")[0]?.replace(/[._]/g, " ") || user.email,
+      fullName,
       lastYearAllocation: Number(lastYearRows[0]?.total ?? 0),
       requestedCapex,
       requestedOpex,

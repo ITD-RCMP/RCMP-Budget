@@ -32,6 +32,7 @@ export type UserDashboardStats = {
   departmentName: string | null;
   staffId: number | null;
   displayName: string;
+  fullName: string | null;
   monthlySpend: MonthlySpend[];
   codeBudgets: CodeBudgetTotal[];
   totalCodeBudget: number;
@@ -223,6 +224,14 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
     }));
     const totalCodeBudget = codeBudgets.reduce((sum, row) => sum + row.amount, 0);
 
+    const { resolveUserFullName } = await import(
+      "@backend/server-functions/microsoft-graph"
+    );
+    const fullName = await resolveUserFullName({
+      userId: user.userId,
+      sessionFullName: user.fullName,
+    });
+
     return {
       budgetYear,
       approvedSpent,
@@ -236,6 +245,7 @@ export const getUserDashboardStats = createServerFn({ method: "GET" })
       departmentName: user.department,
       staffId: user.staffId,
       displayName: displayNameFor(user.email, user.designation),
+      fullName,
       monthlySpend,
       codeBudgets,
       totalCodeBudget,

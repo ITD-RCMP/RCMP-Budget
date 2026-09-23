@@ -1,0 +1,6 @@
+/* Dashboard tokens extend the existing brand palette in src/styles.css. */
+:root {
+  --space-finance-md: 1rem;
+  --space-finance-lg: 1.5rem;
+  --radius-finance: 1rem;
+}

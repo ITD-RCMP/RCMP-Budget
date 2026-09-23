@@ -6,6 +6,7 @@ export type AuthUser = {
   userId: number;
   staffId: number | null;
   email: string;
+  fullName: string | null;
   departmentId: number | null;
   department: string | null;
   designation: string | null;
