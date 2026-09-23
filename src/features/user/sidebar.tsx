@@ -28,8 +28,8 @@ const items: { label: string; icon: LucideIcon; to?: LinkProps["to"] }[] = [
 ];
 
 const itemClass =
-  "inline-flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition";
-const inactiveClass = "text-foreground/60 hover:bg-ivory hover:text-foreground";
+  "nav-item inline-flex items-center gap-3 rounded-full px-4 py-2.5 pl-5 text-sm font-medium tracking-tight transition";
+const inactiveClass = "text-foreground/70 hover:bg-white/40 hover:text-foreground";
 
 function SidebarNav({
   user,
@@ -72,7 +72,7 @@ function SidebarNav({
               key={label}
               to={to}
               activeOptions={{ exact: to !== "/user/history" }}
-              activeProps={{ className: "bg-lime text-lime-foreground" }}
+              activeProps={{ className: "nav-active" }}
               inactiveProps={{ className: inactiveClass }}
               className={itemClass}
               onClick={onNavigate}
@@ -142,7 +142,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-foreground/10 bg-background px-4 md:hidden">
+      <header className="glass-card flex h-16 shrink-0 items-center gap-3 rounded-none border-x-0 border-t-0 px-4 md:hidden">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -166,7 +166,7 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-foreground/10 bg-background p-6 md:flex">
+      <aside className="hidden h-screen w-60 shrink-0 flex-col bg-transparent p-5 md:flex">
         <SidebarNav user={user} />
       </aside>
     </>

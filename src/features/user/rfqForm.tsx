@@ -134,7 +134,7 @@ export function RfqFormPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
@@ -157,7 +157,7 @@ export function RfqFormPage() {
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_420px]">
           <form
             onSubmit={addItem}
-            className="h-fit rounded-[1.5rem] bg-background p-6 shadow-card md:p-8"
+            className="h-fit rounded-[1.5rem] glass-card p-6 md:p-8"
           >
             <h2 className="font-display text-2xl">Add an item</h2>
 
@@ -232,7 +232,7 @@ export function RfqFormPage() {
             </button>
           </form>
 
-          <div className="flex h-fit flex-col rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+          <div className="flex h-fit flex-col rounded-[1.5rem] glass-card p-6 md:p-8">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-2xl">RFQ items</h2>
               <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-lime px-2 text-sm font-medium text-lime-foreground tabular-nums">

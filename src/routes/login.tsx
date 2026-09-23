@@ -94,7 +94,7 @@ function LoginPage() {
 
   if (!failed && !isDev) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-foreground">
+      <div className="app-canvas flex min-h-screen flex-col items-center justify-center px-6 text-foreground">
         <Wordmark />
         <p className="mt-10 text-sm text-foreground/60">
           {busy ? "Signing you in…" : "Redirecting to Microsoft…"}
@@ -104,9 +104,10 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-foreground">
+    <div className="app-canvas flex min-h-screen flex-col items-center justify-center px-6 text-foreground">
+      <div className="glass-card w-full max-w-sm rounded-[1.75rem] px-8 py-10 text-center">
       <Wordmark />
-      <div className="mt-10 w-full max-w-sm text-center">
+      <div className="mt-10 w-full">
         <h1 className="font-display text-3xl">Sign in</h1>
         <p className="mt-2 text-sm text-foreground/60">
           Use your UniKL Microsoft account to continue.
@@ -147,6 +148,7 @@ function LoginPage() {
             ← Back to home
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );

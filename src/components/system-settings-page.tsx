@@ -132,7 +132,7 @@ export function SystemSettingsPage({
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-8 md:p-12">
         <div>
@@ -158,18 +158,18 @@ export function SystemSettingsPage({
           </div>
 
           {loading ? (
-            <div className="rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+            <div className="rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
               <p className="text-sm text-foreground/50">Loading settings…</p>
             </div>
           ) : settings.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+            <div className="rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
               <Settings2 className="mx-auto h-8 w-8 text-foreground/30" />
               <p className="mt-3 text-sm text-foreground/50">
                 No settings found yet. Ask IT to add them in the database.
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[1.5rem] bg-background shadow-card">
+            <div className="overflow-hidden rounded-[1.5rem] glass-card">
               <ul className="divide-y divide-foreground/10">
                 {settings.map((setting) => (
                   <li
@@ -234,24 +234,24 @@ export function SystemSettingsPage({
             </div>
 
             {staffLoading ? (
-              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
                 <p className="text-sm text-foreground/50">Loading staff…</p>
               </div>
             ) : staff.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
                 <Users className="mx-auto h-8 w-8 text-foreground/30" />
                 <p className="mt-3 text-sm text-foreground/50">
                   No staff found in your department yet.
                 </p>
               </div>
             ) : filteredStaff.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+              <div className="rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
                 <p className="text-sm text-foreground/50">
                   No staff match that search. Try another email or ID.
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[1.5rem] bg-background shadow-card">
+              <div className="overflow-hidden rounded-[1.5rem] glass-card">
                 <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-4 border-b border-foreground/10 px-6 py-3 text-xs font-medium tracking-wide text-foreground/40 uppercase md:grid md:px-8">
                   <span>Email</span>
                   <span>Role</span>

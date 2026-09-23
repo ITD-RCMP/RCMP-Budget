@@ -68,7 +68,7 @@ export function CalendarPage() {
   const recentEvents = useMemo(() => events.slice(0, 8), [events]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-8 md:p-12">
@@ -80,7 +80,7 @@ export function CalendarPage() {
         </div>
 
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
-          <div className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+          <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
             {loading ? (
               <p className="py-16 text-center text-sm text-foreground/50">
                 Loading calendar…
@@ -105,7 +105,7 @@ export function CalendarPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+            <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
               <p className="text-xs font-medium tracking-widest text-foreground/40 uppercase">
                 {format(date, "EEEE")}
               </p>
@@ -144,7 +144,7 @@ export function CalendarPage() {
               )}
             </div>
 
-            <div className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+            <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-foreground/40" />
                 <h3 className="text-sm font-medium text-foreground/60">

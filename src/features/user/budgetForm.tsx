@@ -627,7 +627,7 @@ export function BudgetFormPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
@@ -649,11 +649,11 @@ export function BudgetFormPage() {
         </div>
 
         {checkingAccess ? (
-          <div className="mt-8 rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+          <div className="mt-8 rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
             <p className="text-sm text-foreground/50">Checking access…</p>
           </div>
         ) : !formEnabled ? (
-          <div className="mt-8 rounded-[1.5rem] border border-dashed border-foreground/15 bg-background py-16 text-center shadow-card">
+          <div className="mt-8 rounded-[1.5rem] border border-dashed border-foreground/15 glass-card py-16 text-center">
             <ClipboardList className="mx-auto h-8 w-8 text-foreground/30" />
             <p className="mt-3 text-base font-medium">Submissions are closed</p>
             <p className="mt-2 text-sm text-foreground/50">
@@ -669,7 +669,7 @@ export function BudgetFormPage() {
           </div>
         ) : (
           <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
-            <div className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+            <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
               <BudgetYearField
                 id="budget-year"
                 value={budgetYear}
@@ -958,7 +958,7 @@ export function BudgetFormPage() {
               </Tabs>
             </div>
 
-            <div className="sticky top-8 flex h-fit flex-col self-start rounded-[1.5rem] bg-background p-6 shadow-card md:p-7">
+            <div className="sticky top-8 flex h-fit flex-col self-start rounded-[1.5rem] glass-card p-6 md:p-7">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-display text-xl">Saved lines</h2>

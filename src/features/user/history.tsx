@@ -160,7 +160,7 @@ export function HistoryPage() {
     .reduce((sum, row) => sum + row.amount, 0);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
@@ -213,7 +213,7 @@ export function HistoryPage() {
           />
         </div>
 
-        <div className="mt-6 rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+        <div className="mt-6 rounded-[1.5rem] glass-card p-6 md:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="font-display text-2xl">Yearly budgets</h2>
             <div className="relative w-full sm:w-64">
@@ -386,7 +386,7 @@ export function HistoryBudgetDetailPage({ budgetId }: { budgetId: number }) {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
         <Link
@@ -440,8 +440,8 @@ function SummaryCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-[1.5rem] p-5 shadow-card transition hover:-translate-y-0.5",
-        featured ? "bg-lime text-lime-foreground" : "bg-background",
+        "group relative overflow-hidden rounded-[1.5rem] p-5 glass-card transition hover:-translate-y-0.5",
+        featured ? "bg-lime text-lime-foreground" : "",
       )}
     >
       <Icon
@@ -506,7 +506,7 @@ function DetailOverlay({
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] bg-background p-6 shadow-card md:p-8"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] glass-card p-6 md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -793,7 +793,7 @@ function BudgetDetailCard({
   return (
     <div className="mx-auto max-w-5xl">
       {editing ? (
-        <div className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+        <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-medium tracking-wide text-foreground/40 uppercase">
@@ -1080,13 +1080,13 @@ function BudgetDetailCard({
       ) : (
         <>
           {detail.isMine && !formEnabled && (
-            <div className="mb-4 rounded-[1.5rem] bg-background px-6 py-5 text-sm text-foreground/55 shadow-card">
+            <div className="mb-4 rounded-[1.5rem] glass-card px-6 py-5 text-sm text-foreground/55">
               Yearly budget submissions are closed. You can still update
               amounts. Edit opens again when your admin reopens them.
             </div>
           )}
 
-          <div className="overflow-hidden rounded-[1.5rem] bg-background shadow-card">
+          <div className="overflow-hidden rounded-[1.5rem] glass-card">
             <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="p-6 md:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1294,7 +1294,7 @@ function BudgetDetailCard({
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
-            <section className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+            <section className="rounded-[1.5rem] glass-card p-6 md:p-8">
               <h2 className="font-display text-xl">Request</h2>
               <div className="mt-5 space-y-5">
                 {isCapex ? (
@@ -1339,7 +1339,7 @@ function BudgetDetailCard({
               </div>
             </section>
 
-            <section className="rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+            <section className="rounded-[1.5rem] glass-card p-6 md:p-8">
               <h2 className="font-display text-xl">
                 {isCapex ? "Estimate" : "Items"}
               </h2>
@@ -1405,7 +1405,7 @@ function BudgetDetailCard({
             </section>
           </div>
 
-          <section className="mt-4 rounded-[1.5rem] bg-background p-6 shadow-card md:p-8">
+          <section className="mt-4 rounded-[1.5rem] glass-card p-6 md:p-8">
             <h2 className="font-display text-xl">Request log</h2>
             <div className="mt-4">
               <BudgetLogList
@@ -1981,7 +1981,7 @@ function MetaTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[1.5rem] bg-background p-5 shadow-card">
+    <div className="rounded-[1.5rem] glass-card p-5">
       <div className="flex items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-lime text-lime-foreground">
           <Icon className="h-4 w-4" />

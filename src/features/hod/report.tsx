@@ -695,7 +695,7 @@ export function HodReportPage() {
   const capexTotal = capexRows.reduce((sum, row) => sum + row.amount, 0);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-8 md:p-12">
@@ -743,7 +743,7 @@ export function HodReportPage() {
 
         <div
           className={cn(
-            "mt-6 rounded-[1.5rem] bg-background p-6 shadow-card md:p-8",
+            "mt-6 rounded-[1.5rem] glass-card p-6 md:p-8",
             maximized &&
               "fixed inset-0 z-50 mt-0 flex h-screen w-screen flex-col overflow-hidden rounded-none p-6 md:p-8",
           )}
@@ -975,8 +975,8 @@ function SummaryStat({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-[1.5rem] p-6 text-left shadow-card transition hover:-translate-y-0.5",
-        active ? "bg-lime text-lime-foreground" : "bg-background",
+        "group relative overflow-hidden rounded-[1.5rem] p-6 text-left glass-card transition hover:-translate-y-0.5",
+        active ? "bg-lime text-lime-foreground" : "",
       )}
     >
       <Icon
@@ -1133,7 +1133,7 @@ function DetailOverlay({
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] bg-background p-6 shadow-card md:p-8"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] glass-card p-6 md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

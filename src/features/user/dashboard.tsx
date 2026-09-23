@@ -362,7 +362,7 @@ export function UserDashboard() {
   const chartTicks = [0, 0.25, 0.5, 0.75, 1].map((part) => chartMax * part);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
@@ -396,7 +396,7 @@ export function UserDashboard() {
         </div>
 
         <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
-          <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] bg-background p-5 text-foreground shadow-card sm:p-6">
+          <div className="relative min-w-0 overflow-hidden rounded-[1.75rem] glass-card p-5 text-foreground sm:p-6">
             <div className="pointer-events-none absolute -top-10 -right-8 h-40 w-40 rounded-full bg-lime/40" />
             <div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-lime/20" />
             <div className="relative flex items-start justify-between">
@@ -451,7 +451,7 @@ export function UserDashboard() {
             </div>
           </div>
 
-          <div className="min-w-0 rounded-[1.75rem] bg-background p-4 shadow-card sm:p-5 md:p-6">
+          <div className="min-w-0 rounded-[1.75rem] glass-card p-4 sm:p-5 md:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-lime text-lime-foreground">
@@ -507,7 +507,7 @@ export function UserDashboard() {
 
         <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="min-w-0 rounded-[1.75rem] bg-background p-4 shadow-card sm:p-5">
+            <div className="min-w-0 rounded-[1.75rem] glass-card p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="text-lg font-medium">Money Analytics</h2>
@@ -603,7 +603,7 @@ export function UserDashboard() {
               </div>
             </div>
 
-            <div className="min-w-0 rounded-[1.75rem] bg-background p-4 shadow-card sm:p-5">
+            <div className="min-w-0 rounded-[1.75rem] glass-card p-4 sm:p-5">
               <h2 className="text-lg font-medium">Shortcuts</h2>
               <p className="mt-1 text-xs text-foreground/50">
                 Click to navigate to the page
@@ -663,7 +663,7 @@ export function UserDashboard() {
             </div>
           </div>
 
-          <div className="min-w-0 rounded-[1.75rem] bg-background p-4 shadow-card sm:p-5 md:p-6">
+          <div className="min-w-0 rounded-[1.75rem] glass-card p-4 sm:p-5 md:p-6">
             <div className="-mx-1 flex gap-4 overflow-x-auto border-b border-foreground/10 px-1 sm:gap-5">
               {tabs.map((item) => (
                 <button
@@ -772,7 +772,7 @@ export function UserDashboard() {
                     return (
                       <li
                         key={row.key}
-                        className="flex flex-col gap-3 rounded-2xl bg-ivory p-4"
+                        className="glass-inset flex flex-col gap-3 rounded-2xl p-4"
                       >
                         <div className="flex items-start gap-3">
                           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background font-medium">
@@ -953,7 +953,7 @@ function CashflowCard({
   loading: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-ivory p-4">
+    <div className="glass-inset min-w-0 rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
         <span
           className={cn(
