@@ -5,6 +5,7 @@ import {
   budgetSnapshot,
   parseSnapshot,
   type BudgetAction,
+  type BudgetSnapshot,
 } from "@backend/core/budget-action-log";
 import type { AuthUser } from "@/lib/auth";
 
@@ -42,7 +43,7 @@ type LogRow = {
 function formatLogDate(value: Date | string) {
   const created = value instanceof Date ? value : new Date(value);
   return {
-    date: created.toLocaleString("en-GB", {
+    date: created.toLocaleString("en-p", {
       day: "numeric",
       month: "short",
       year: "numeric",

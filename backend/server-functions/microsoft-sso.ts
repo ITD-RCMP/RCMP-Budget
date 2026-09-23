@@ -20,6 +20,8 @@ type MicrosoftProfile = {
   email: string;
 };
 
+const MICROSOFT_SCOPES = "openid profile email";
+
 const USER_SELECT = `SELECT u.user_id, u.staff_id, u.email, u.oid, u.department_id,
        d.department_name AS department, u.designation, u.role_id, r.role_name
 FROM users u
@@ -90,39 +92,89 @@ function asString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-async function fetchMicrosoftProfile(
-  tokenUrl: string,
-  body: URLSearchParams,
-): Promise<MicrosoftProfile> {
+type TokenResponse = {
+  access_token?: string;
+  id_token?: string;
+  error?: string;
+  error_description?: string;
+  error_codes?: number[];
+};
+
+function microsoftFailureMessage(token: TokenResponse) {
+  const codes = token.error_codes ?? [];
+  const detail = `${token.error ?? ""} ${token.error_description ?? ""}`.toLowerCase();
+  if (codes.includes(7000215) || detail.includes("invalid_client") || detail.includes("client secret")) {
+    return "Microsoft rejected the app secret. Ask an admin to create a new secret and update the server.";
+  }
+  if (codes.includes(50011) || detail.includes("redirect_uri")) {
+    return "The Microsoft return address doesn't match this site. Ask an admin to update it, then try again.";
+  }
+  if (codes.includes(65001) || codes.includes(70011) || detail.includes("consent")) {
+    return "Microsoft needs an admin to approve this app. Ask them to allow it, then try again.";
+  }
+  if (codes.includes(50148) || detail.includes("invalid_grant") || detail.includes("code_verifier")) {
+    return "This sign-in link expired. Start again from the login page.";
+  }
+  return "Microsoft sign-in failed. Please try again.";
+}
+
+function isPublicClientRejection(token: TokenResponse) {
+  const codes = token.error_codes ?? [];
+  if (codes.includes(700025)) return true;
+  const detail = (token.error_description ?? "").toLowerCase();
+  return detail.includes("public") && detail.includes("client_secret");
+}
+
+async function requestToken(tokenUrl: string, body: URLSearchParams) {
   const tokenRes = await fetch(tokenUrl, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
   });
-  const tokenJson = (await tokenRes.json()) as {
-    access_token?: string;
-    id_token?: string;
-    error?: string;
-  };
-  if (!tokenRes.ok || !tokenJson.access_token) {
+  let tokenJson: TokenResponse;
+  try {
+    tokenJson = (await tokenRes.json()) as TokenResponse;
+  } catch {
     throw new Error("Microsoft sign-in failed. Please try again.");
   }
+  return { ok: tokenRes.ok, tokenJson };
+}
 
-  const claims = tokenJson.id_token ? decodeJwtPayload(tokenJson.id_token) : null;
+async function fetchMicrosoftProfile(
+  tokenUrl: string,
+  body: URLSearchParams,
+): Promise<MicrosoftProfile> {
+  let { ok, tokenJson } = await requestToken(tokenUrl, body);
+  if (!ok && isPublicClientRejection(tokenJson)) {
+    body.delete("client_secret");
+    ({ ok, tokenJson } = await requestToken(tokenUrl, body));
+  }
+  if (!ok || !tokenJson.id_token) {
+    console.error("Microsoft token error", tokenJson.error, tokenJson.error_codes);
+    throw new Error(microsoftFailureMessage(tokenJson));
+  }
+
+  const claims = decodeJwtPayload(tokenJson.id_token);
   let oid = asString(claims?.oid);
-  let email = asString(claims?.email) || asString(claims?.preferred_username) || asString(claims?.upn);
+  let email =
+    asString(claims?.email) ||
+    asString(claims?.preferred_username) ||
+    asString(claims?.upn) ||
+    asString(claims?.unique_name);
 
-  const meRes = await fetch("https://graph.microsoft.com/v1.0/me", {
-    headers: { authorization: `Bearer ${tokenJson.access_token}` },
-  });
-  if (meRes.ok) {
-    const me = (await meRes.json()) as {
-      id?: string;
-      mail?: string | null;
-      userPrincipalName?: string | null;
-    };
-    oid = asString(me.id) || oid;
-    email = asString(me.mail) || asString(me.userPrincipalName) || email;
+  if (tokenJson.access_token && (!oid || !email)) {
+    const meRes = await fetch("https://graph.microsoft.com/v1.0/me", {
+      headers: { authorization: `Bearer ${tokenJson.access_token}` },
+    });
+    if (meRes.ok) {
+      const me = (await meRes.json()) as {
+        id?: string;
+        mail?: string | null;
+        userPrincipalName?: string | null;
+      };
+      oid = asString(me.id) || oid;
+      email = asString(me.mail) || asString(me.userPrincipalName) || email;
+    }
   }
 
   if (!oid || !email) {
@@ -147,7 +199,7 @@ export async function startMicrosoftSso() {
     response_type: "code",
     redirect_uri: config.redirectUri,
     response_mode: "query",
-    scope: "openid profile email User.Read",
+    scope: MICROSOFT_SCOPES,
     state,
     code_challenge: pkceChallenge(verifier),
     code_challenge_method: "S256",
@@ -173,6 +225,7 @@ export async function completeMicrosoftSso(input: { code: string; state: string 
       grant_type: "authorization_code",
       code: input.code,
       redirect_uri: config.redirectUri,
+      scope: MICROSOFT_SCOPES,
       code_verifier: pending.verifier,
     }),
   );
