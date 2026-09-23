@@ -7,7 +7,6 @@ import {
   FileDown,
   Maximize2,
   Minimize2,
-  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,10 +23,8 @@ import { cn } from "@/lib/utils";
 import {
   listDepartmentBudgetReport,
   listDepartmentBudgetYears,
-  listDepartmentQuotations,
   type DepartmentBudgetDetail,
   type DepartmentBudgetItem,
-  type DepartmentQuotationListItem,
 } from "@backend/server-functions/department-fns";
 
 const CAPEX_CATEGORIES: Record<string, string> = {
@@ -45,7 +42,7 @@ function buildYearOptions(yearsWithData: number[]) {
   );
 }
 
-type ReportView = "opex" | "capex" | "requisitions";
+type ReportView = "opex" | "capex";
 
 function formatRm(value: number) {
   return value.toLocaleString("en-MY", {
@@ -88,11 +85,7 @@ export function DepartmentPage() {
   const [yearChoices, setYearChoices] = useState(defaultYearOptions);
   const [yearReady, setYearReady] = useState(false);
   const [budgets, setBudgets] = useState<DepartmentBudgetDetail[]>([]);
-  const [requisitions, setRequisitions] = useState<
-    DepartmentQuotationListItem[]
-  >([]);
   const [loadingBudgets, setLoadingBudgets] = useState(true);
-  const [loadingRequisitions, setLoadingRequisitions] = useState(true);
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -155,28 +148,6 @@ export function DepartmentPage() {
     };
   }, [budgetYear, yearReady]);
 
-  useEffect(() => {
-    let active = true;
-    listDepartmentQuotations()
-      .then((rows) => {
-        if (active) setRequisitions(rows);
-      })
-      .catch((error) => {
-        if (!active) return;
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Could not load quotations. Try again.",
-        );
-      })
-      .finally(() => {
-        if (active) setLoadingRequisitions(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const opexRows = useMemo(
     () =>
       budgets.filter(
@@ -215,10 +186,6 @@ export function DepartmentPage() {
   );
   const opexTotal = opexRows.reduce((sum, row) => sum + row.amount, 0);
   const capexTotal = capexRows.reduce((sum, row) => sum + row.amount, 0);
-  const requisitionTotal = requisitions.reduce(
-    (sum, row) => sum + row.amount,
-    0,
-  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-ivory text-foreground md:flex-row">
@@ -229,7 +196,7 @@ export function DepartmentPage() {
           <div>
             <h1 className="font-display text-4xl">My Department</h1>
             <p className="mt-2 text-sm text-foreground/60">
-              Department OPEX, CAPEX, and quotation requisitions in one view.
+              Department OPEX and CAPEX in one view.
             </p>
           </div>
           <div className="w-40">
@@ -268,7 +235,7 @@ export function DepartmentPage() {
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
           <SummaryStat
             label={`OPEX FY ${budgetYear}`}
             value={`RM ${formatRm(opexTotal)}`}
@@ -284,14 +251,6 @@ export function DepartmentPage() {
             icon={ArrowUpRight}
             active={view === "capex"}
             onClick={() => setView("capex")}
-          />
-          <SummaryStat
-            label="Quotations"
-            value={`RM ${formatRm(requisitionTotal)}`}
-            hint={`${requisitions.length} request${requisitions.length === 1 ? "" : "s"}`}
-            icon={Receipt}
-            active={view === "requisitions"}
-            onClick={() => setView("requisitions")}
           />
         </div>
 
@@ -370,29 +329,6 @@ export function DepartmentPage() {
             </>
           )}
 
-          {view === "requisitions" && (
-            <>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <ReportSectionTitle>Quotation Ledger</ReportSectionTitle>
-                <MaximizeButton
-                  maximized={maximized}
-                  onClick={() => setMaximized((value) => !value)}
-                />
-              </div>
-              <div className={cn(maximized && "min-h-0 flex-1 overflow-auto")}>
-                {loadingRequisitions ? (
-                  <LoadingState message="Loading quotations…" />
-                ) : requisitions.length === 0 ? (
-                  <EmptyState
-                    message="No quotations submitted yet."
-                    maximized={maximized}
-                  />
-                ) : (
-                  <QuotationTable rows={requisitions} total={requisitionTotal} />
-                )}
-              </div>
-            </>
-          )}
         </div>
       </main>
     </div>
@@ -815,88 +751,6 @@ function CapexTable({
               colSpan={3}
               className="border border-foreground/15 px-3 py-3"
             />
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  );
-}
-
-function QuotationTable({
-  rows,
-  total,
-}: {
-  rows: DepartmentQuotationListItem[];
-  total: number;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-xl border border-foreground/15">
-      <table className="min-w-[900px] w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-[#ebe6dc] text-center text-xs font-semibold uppercase tracking-wide">
-            <th className="border border-foreground/20 px-3 py-3">No.</th>
-            <th className="border border-foreground/20 px-3 py-3">Ref</th>
-            <th className="border border-foreground/20 px-3 py-3 text-left">
-              Item / request
-            </th>
-            <th className="border border-foreground/20 px-3 py-3 text-left">
-              Requester
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">
-              Submitted
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">
-              Amount (RM)
-            </th>
-            <th className="border border-foreground/20 px-3 py-3">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.id} className="align-top odd:bg-background even:bg-ivory/40">
-              <td className="border border-foreground/15 px-3 py-3 text-center tabular-nums">
-                {index + 1}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center font-medium">
-                QT-{row.id}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3">
-                {row.title}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3">
-                {row.requester}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
-                {row.date}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-right font-medium tabular-nums">
-                {formatRm(row.amount)}
-              </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-                    statusTone(row.status),
-                  )}
-                >
-                  {row.status}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="bg-[#ebe6dc] font-medium">
-            <td
-              colSpan={5}
-              className="border border-foreground/15 px-3 py-3 text-right"
-            >
-              Total quotations
-            </td>
-            <td className="border border-foreground/15 px-3 py-3 text-right tabular-nums">
-              {formatRm(total)}
-            </td>
-            <td className="border border-foreground/15 px-3 py-3" />
           </tr>
         </tfoot>
       </table>

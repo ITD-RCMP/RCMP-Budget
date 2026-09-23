@@ -8,7 +8,7 @@ export const Route = createFileRoute("/hod/reports")({
       {
         name: "description",
         content:
-          "View department OPEX, CAPEX, and quotation requisition reports.",
+          "View department OPEX and CAPEX reports.",
       },
     ],
   }),

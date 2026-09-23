@@ -31,14 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  listHodQuotations,
-  type HodQuotationListItem,
-} from "@backend/server-functions/hod-quotation-fns";
-import {
-  listHodBudgets,
-  type HodBudgetListItem,
-} from "@backend/server-functions/hod-budget-fns";
+import { listHodBudgets } from "@backend/server-functions/hod-budget-fns";
 import {
   getHodDashboardStats,
   recordFinanceEntry,
@@ -48,13 +41,13 @@ import {
 } from "@backend/server-functions/finance-account-fns";
 
 type ActivityStatus = "Pending" | "Approved" | "Rejected";
-type TableTab = "all" | "budgets" | "quotations" | "history";
+type TableTab = "all" | "budgets" | "history";
 type StatusFilter = "All" | ActivityStatus;
 type DateFilter = "month" | "year" | "all";
 
 type DashboardRow = {
   key: string;
-  kind: "quotation" | "budget";
+  kind: "budget";
   title: string;
   requester: string;
   ref: string;
@@ -80,7 +73,6 @@ const PAGE_SIZE = 6;
 const tabs: { id: TableTab; label: string }[] = [
   { id: "all", label: "All Transaction" },
   { id: "budgets", label: "Yearly Budget" },
-  { id: "quotations", label: "Quotations" },
   { id: "history", label: "Transaction History" },
 ];
 
@@ -316,21 +308,10 @@ export function HodDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([listHodQuotations(), listHodBudgets()])
-      .then(([quotations, budgets]: [HodQuotationListItem[], HodBudgetListItem[]]) => {
+    listHodBudgets()
+      .then((budgets) => {
         if (!active) return;
         const merged: DashboardRow[] = [
-          ...quotations.map((row) => ({
-            key: `qt-${row.id}`,
-            kind: "quotation" as const,
-            title: row.title,
-            requester: row.requester,
-            ref: `QT-${row.id}`,
-            amount: row.amount,
-            status: row.status,
-            createdAt: row.createdAt,
-            date: row.date,
-          })),
           ...budgets.map((row) => ({
             key: `yb-${row.id}`,
             kind: "budget" as const,
@@ -477,7 +458,6 @@ export function HodDashboard() {
   const filteredRows = useMemo(() => {
     const needle = query.toLowerCase().trim();
     return rows.filter((row) => {
-      if (tab === "quotations" && row.kind !== "quotation") return false;
       if (tab === "budgets" && row.kind !== "budget") return false;
       if (tab === "history" && row.status === "Pending") return false;
       if (statusFilter !== "All" && row.status !== statusFilter) return false;
@@ -863,7 +843,7 @@ export function HodDashboard() {
                   {tabs.find((item) => item.id === tab)?.label}
                 </h2>
                 <p className="mt-1 text-sm text-foreground/50">
-                  All department quotations and yearly budgets are recorded
+                  All department yearly budgets are recorded
                 </p>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -959,9 +939,7 @@ export function HodDashboard() {
                               <p className="mt-0.5 truncate text-xs text-foreground/45">
                                 {row.ref}
                                 {" · "}
-                                {row.kind === "quotation"
-                                  ? "Quotation"
-                                  : row.budgetType}
+                                {row.budgetType}
                                 {" · "}
                                 {row.requester}
                               </p>
@@ -1027,9 +1005,7 @@ export function HodDashboard() {
                               <div className="min-w-0">
                                 <p className="truncate font-medium">{row.title}</p>
                                 <p className="text-xs text-foreground/45">
-                                  {row.kind === "quotation"
-                                    ? "Quotation"
-                                    : row.budgetType}
+                                  {row.budgetType}
                                   {" · "}
                                   {row.requester}
                                 </p>

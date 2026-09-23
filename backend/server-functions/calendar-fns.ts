@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@backend/core/middleware";
 
-export type CalendarEventKind = "quotation" | "budget";
+export type CalendarEventKind = "budget";
 
 export type CalendarEventStatus = "Pending" | "Approved" | "Rejected";
 
@@ -15,16 +15,6 @@ export type DepartmentCalendarEvent = {
   status: CalendarEventStatus;
   statusName: string;
   createdAt: string;
-};
-
-type QuotationRow = {
-  quotation_id: number;
-  status_name: string;
-  created_at: Date | string;
-  item_count: number;
-  total_amount: string | number;
-  first_item: string | null;
-  requester_email: string;
 };
 
 type BudgetRow = {
@@ -48,12 +38,6 @@ function mapStatus(statusName: string): CalendarEventStatus {
     return "Approved";
   }
   return "Pending";
-}
-
-function quotationTitle(firstItem: string | null, itemCount: number) {
-  if (!firstItem) return "Quotation request";
-  if (itemCount <= 1) return firstItem;
-  return `${firstItem} + ${itemCount - 1} more`;
 }
 
 function budgetTitle(row: Pick<BudgetRow, "budget_type" | "activity" | "item_name">) {
@@ -102,32 +86,6 @@ export const listDepartmentCalendarEvents = createServerFn({
       params.push(user.userId);
     }
 
-    const quotationRows = await query<QuotationRow[]>(
-      `SELECT
-         q.quotation_id,
-         qs.status_name,
-         q.created_at,
-         COUNT(qi.quotation_item_id) AS item_count,
-         COALESCE(SUM(qi.item_price * qi.item_quantity), 0) AS total_amount,
-         (
-           SELECT qi2.item_name
-           FROM quotations_items qi2
-           WHERE qi2.quotation_id = q.quotation_id
-           ORDER BY qi2.quotation_item_id ASC
-           LIMIT 1
-         ) AS first_item,
-         u.email AS requester_email
-       FROM quotations q
-       INNER JOIN quotation_statuses qs ON qs.status_id = q.status_id
-       INNER JOIN users u ON u.user_id = q.user_id
-       LEFT JOIN quotations_items qi ON qi.quotation_id = q.quotation_id
-       WHERE 1 = 1
-       ${departmentFilter}
-       GROUP BY q.quotation_id, qs.status_name, q.created_at, u.email
-       ORDER BY q.created_at DESC`,
-      params,
-    );
-
     const budgetRows = await query<BudgetRow[]>(
       `SELECT
          yb.budget_id,
@@ -155,23 +113,6 @@ export const listDepartmentCalendarEvents = createServerFn({
       params,
     );
 
-    const quotationEvents: DepartmentCalendarEvent[] = quotationRows.map((row) => {
-      const amount = Number(row.total_amount);
-      const status = mapStatus(row.status_name);
-      const title = quotationTitle(row.first_item, Number(row.item_count));
-      return {
-        id: `qt-${row.quotation_id}`,
-        kind: "quotation",
-        title: `QT-${row.quotation_id} · ${title}`,
-        detail: `${status} · ${formatRm(amount)} · ${row.requester_email}`,
-        requester: row.requester_email,
-        amount,
-        status,
-        statusName: row.status_name,
-        createdAt: toIso(row.created_at),
-      };
-    });
-
     const budgetEvents: DepartmentCalendarEvent[] = budgetRows.map((row) => {
       const amount = Number(row.budget_amount);
       const status = mapStatus(row.status_name);
@@ -190,7 +131,7 @@ export const listDepartmentCalendarEvents = createServerFn({
       };
     });
 
-    return [...quotationEvents, ...budgetEvents].sort(
+    return budgetEvents.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   });

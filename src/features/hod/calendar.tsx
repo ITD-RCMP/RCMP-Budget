@@ -75,7 +75,7 @@ export function CalendarPage() {
         <div>
           <h1 className="font-display text-4xl">Calendar</h1>
           <p className="mt-2 text-sm text-foreground/60">
-            Department quotations and yearly budgets by date.
+            Department yearly budgets by date.
           </p>
         </div>
 
@@ -135,7 +135,7 @@ export function CalendarPage() {
                           {event.time}
                         </span>
                         <span className="rounded-full bg-foreground/5 px-2.5 py-1 text-xs font-medium text-foreground/60">
-                          {event.kind === "quotation" ? "Quotation" : "Budget"}
+                          Budget
                         </span>
                       </div>
                     </li>
@@ -155,7 +155,7 @@ export function CalendarPage() {
                 <p className="mt-4 text-sm text-foreground/50">Loading…</p>
               ) : recentEvents.length === 0 ? (
                 <p className="mt-4 text-sm text-foreground/50">
-                  No department quotations or budgets yet.
+                  No department budgets yet.
                 </p>
               ) : (
                 <ul className="mt-4 space-y-1">

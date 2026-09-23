@@ -16,7 +16,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserIndexRouteImport } from './routes/user/index'
 import { Route as HodIndexRouteImport } from './routes/hod/index'
 import { Route as UserRfqRouteImport } from './routes/user/rfq'
-import { Route as UserQuotationRouteImport } from './routes/user/quotation'
 import { Route as UserProfileRouteImport } from './routes/user/profile'
 import { Route as UserDepartmentRouteImport } from './routes/user/department'
 import { Route as UserCalendarRouteImport } from './routes/user/calendar'
@@ -63,11 +62,6 @@ const HodIndexRoute = HodIndexRouteImport.update({
 const UserRfqRoute = UserRfqRouteImport.update({
   id: '/rfq',
   path: '/rfq',
-  getParentRoute: () => UserRouteRoute,
-} as any)
-const UserQuotationRoute = UserQuotationRouteImport.update({
-  id: '/quotation',
-  path: '/quotation',
   getParentRoute: () => UserRouteRoute,
 } as any)
 const UserProfileRoute = UserProfileRouteImport.update({
@@ -145,7 +139,6 @@ export interface FileRoutesByFullPath {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/profile': typeof UserProfileRoute
-  '/user/quotation': typeof UserQuotationRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
@@ -164,7 +157,6 @@ export interface FileRoutesByTo {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/profile': typeof UserProfileRoute
-  '/user/quotation': typeof UserQuotationRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod': typeof HodIndexRoute
   '/user': typeof UserIndexRoute
@@ -187,7 +179,6 @@ export interface FileRoutesById {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/profile': typeof UserProfileRoute
-  '/user/quotation': typeof UserQuotationRoute
   '/user/rfq': typeof UserRfqRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
@@ -211,7 +202,6 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/profile'
-    | '/user/quotation'
     | '/user/rfq'
     | '/hod/'
     | '/user/'
@@ -230,7 +220,6 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/profile'
-    | '/user/quotation'
     | '/user/rfq'
     | '/hod'
     | '/user'
@@ -252,7 +241,6 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/profile'
-    | '/user/quotation'
     | '/user/rfq'
     | '/hod/'
     | '/user/'
@@ -318,13 +306,6 @@ declare module '@tanstack/react-router' {
       path: '/rfq'
       fullPath: '/user/rfq'
       preLoaderRoute: typeof UserRfqRouteImport
-      parentRoute: typeof UserRouteRoute
-    }
-    '/user/quotation': {
-      id: '/user/quotation'
-      path: '/quotation'
-      fullPath: '/user/quotation'
-      preLoaderRoute: typeof UserQuotationRouteImport
       parentRoute: typeof UserRouteRoute
     }
     '/user/profile': {
@@ -453,7 +434,6 @@ interface UserRouteRouteChildren {
   UserCalendarRoute: typeof UserCalendarRoute
   UserDepartmentRoute: typeof UserDepartmentRoute
   UserProfileRoute: typeof UserProfileRoute
-  UserQuotationRoute: typeof UserQuotationRoute
   UserRfqRoute: typeof UserRfqRoute
   UserIndexRoute: typeof UserIndexRoute
 }
@@ -464,7 +444,6 @@ const UserRouteRouteChildren: UserRouteRouteChildren = {
   UserCalendarRoute: UserCalendarRoute,
   UserDepartmentRoute: UserDepartmentRoute,
   UserProfileRoute: UserProfileRoute,
-  UserQuotationRoute: UserQuotationRoute,
   UserRfqRoute: UserRfqRoute,
   UserIndexRoute: UserIndexRoute,
 }
