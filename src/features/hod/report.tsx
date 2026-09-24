@@ -40,6 +40,7 @@ import {
   listHodBudgetReport,
   listHodBudgetYears,
   reviewHodBudget,
+  rejectHodBudgetAfterMeeting,
   transferHodBudget,
   updateHodBudget,
   updateHodApprovedBudget,
@@ -522,6 +523,30 @@ export function HodReportPage() {
   const budgetLabel = (id: number) =>
     budgets.find((row) => row.id === id)?.budgetRef ?? "this budget";
 
+  const rejectAfterMeeting = async (id: number) => {
+    const key = `yb-${id}`;
+    if (reviewingKey != null) return;
+    setReviewingKey(key);
+    const toastId = toast.loading(`Closing ${budgetLabel(id)}…`);
+    try {
+      await rejectHodBudgetAfterMeeting({ data: { budgetId: id } });
+      setBudgets((prev) => prev.filter((row) => row.id !== id));
+      toast.success(`${budgetLabel(id)} rejected after meeting`, {
+        id: toastId,
+        description: "Only the requester can still see this budget.",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Could not update ${budgetLabel(id)}. Try again.`,
+        { id: toastId },
+      );
+    } finally {
+      setReviewingKey(null);
+    }
+  };
+
   const reviewBudget = async (
     id: number,
     decision: "Approved" | "Rejected",
@@ -793,8 +818,9 @@ export function HodReportPage() {
                     total={opexTotal}
                     reviewingKey={reviewingKey}
                     onApprove={(id) => void reviewBudget(id, "Approved")}
-                    onReject={setRejectBudget}
-                    onTransfer={setTransferBudgetRow}
+        onReject={setRejectBudget}
+        onRejectAfterMeeting={(id) => void rejectAfterMeeting(id)}
+        onTransfer={setTransferBudgetRow}
                     onEdit={setEditBudgetRow}
                     onUpdateBudget={setUpdateBudgetRow}
                   />
@@ -843,8 +869,9 @@ export function HodReportPage() {
                     total={capexTotal}
                     reviewingKey={reviewingKey}
                     onApprove={(id) => void reviewBudget(id, "Approved")}
-                    onReject={setRejectBudget}
-                    onTransfer={setTransferBudgetRow}
+        onReject={setRejectBudget}
+        onRejectAfterMeeting={(id) => void rejectAfterMeeting(id)}
+        onTransfer={setTransferBudgetRow}
                     onEdit={setEditBudgetRow}
                     onUpdateBudget={setUpdateBudgetRow}
                   />
@@ -1191,6 +1218,7 @@ function BudgetActions({
   reviewing,
   onApprove,
   onReject,
+  onRejectAfterMeeting,
   onTransfer,
   onEdit,
   onUpdateBudget,
@@ -1199,6 +1227,7 @@ function BudgetActions({
   reviewing: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onRejectAfterMeeting: () => void;
   onTransfer: () => void;
   onEdit: () => void;
   onUpdateBudget: () => void;
@@ -1236,6 +1265,17 @@ function BudgetActions({
               <ArrowRightLeft className="h-3.5 w-3.5" />
             </ActionIconButton>
           </>
+        )}
+        {row.status === "Approved" && (
+          <ActionIconButton
+            label="Rejected after meeting"
+            description="Rejected after meeting"
+            disabled={reviewing}
+            onClick={onRejectAfterMeeting}
+            className="bg-red-100 text-red-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </ActionIconButton>
         )}
         <ActionIconButton
           label="Update budget"
@@ -2500,6 +2540,7 @@ function OpexTable({
   reviewingKey,
   onApprove,
   onReject,
+  onRejectAfterMeeting,
   onTransfer,
   onEdit,
   onUpdateBudget,
@@ -2509,6 +2550,7 @@ function OpexTable({
   reviewingKey: string | null;
   onApprove: (id: number) => void;
   onReject: (row: HodBudgetDetail) => void;
+  onRejectAfterMeeting: (id: number) => void;
   onTransfer: (row: HodBudgetDetail) => void;
   onEdit: (row: HodBudgetDetail) => void;
   onUpdateBudget: (row: HodBudgetDetail) => void;
@@ -2595,6 +2637,7 @@ function OpexTable({
                     reviewing={reviewingKey === `yb-${row.id}`}
                     onApprove={() => onApprove(row.id)}
                     onReject={() => onReject(row)}
+                    onRejectAfterMeeting={() => onRejectAfterMeeting(row.id)}
                     onTransfer={() => onTransfer(row)}
                     onEdit={() => onEdit(row)}
                     onUpdateBudget={() => onUpdateBudget(row)}
@@ -2633,6 +2676,7 @@ function CapexTable({
   reviewingKey,
   onApprove,
   onReject,
+  onRejectAfterMeeting,
   onTransfer,
   onEdit,
   onUpdateBudget,
@@ -2643,6 +2687,7 @@ function CapexTable({
   reviewingKey: string | null;
   onApprove: (id: number) => void;
   onReject: (row: HodBudgetDetail) => void;
+  onRejectAfterMeeting: (id: number) => void;
   onTransfer: (row: HodBudgetDetail) => void;
   onEdit: (row: HodBudgetDetail) => void;
   onUpdateBudget: (row: HodBudgetDetail) => void;
@@ -2764,6 +2809,7 @@ function CapexTable({
                   reviewing={reviewingKey === `yb-${row.id}`}
                   onApprove={() => onApprove(row.id)}
                   onReject={() => onReject(row)}
+                  onRejectAfterMeeting={() => onRejectAfterMeeting(row.id)}
                   onTransfer={() => onTransfer(row)}
                   onEdit={() => onEdit(row)}
                   onUpdateBudget={() => onUpdateBudget(row)}

@@ -149,6 +149,10 @@ function mapBudgetStatus(statusName: string): BudgetStatus {
   return "Pending";
 }
 
+function isClosedAfterMeeting(statusName: string) {
+  return statusName.toLowerCase().includes("after meeting");
+}
+
 function budgetTitle(row: Pick<BudgetRow, "budget_type" | "activity" | "item_name">) {
   if (row.budget_type === "CAPEX") {
     return row.item_name?.trim() || "Capital expenditure";
@@ -676,6 +680,9 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
     }
 
     const status = mapBudgetStatus(row.status_name);
+    if (isClosedAfterMeeting(row.status_name)) {
+      throw new Error("This budget is closed. No changes can be made.");
+    }
     if (status !== "Pending" && status !== "Rejected" && status !== "Approved") {
       throw new Error("This budget cannot be edited. Refresh and try again.");
     }
@@ -826,6 +833,9 @@ export const deleteYearlyBudget = createServerFn({ method: "POST" })
     }
 
     const status = mapBudgetStatus(row.status_name);
+    if (isClosedAfterMeeting(row.status_name)) {
+      throw new Error("This budget is closed. No changes can be made.");
+    }
     if (status !== "Pending" && status !== "Rejected") {
       throw new Error("Only pending or rejected budgets can be removed. Refresh and try again.");
     }
@@ -915,6 +925,10 @@ export const transferYearlyBudget = createServerFn({ method: "POST" })
     const row = rows[0];
     if (!row) {
       throw new Error("Budget not found. Refresh the page and try again.");
+    }
+
+    if (isClosedAfterMeeting(row.status_name)) {
+      throw new Error("This budget is closed. No changes can be made.");
     }
 
     if (mapBudgetStatus(row.status_name) !== "Pending") {
@@ -1078,6 +1092,10 @@ export const updateApprovedYearlyBudget = createServerFn({ method: "POST" })
     const row = rows[0];
     if (!row) {
       throw new Error("Budget not found. Refresh the page and try again.");
+    }
+
+    if (isClosedAfterMeeting(row.status_name)) {
+      throw new Error("This budget is closed. No changes can be made.");
     }
 
     if (

@@ -350,8 +350,8 @@ export const listHodBudgetLogs = createServerFn({ method: "GET" })
     const logs = rows.map(toLog).filter((row): row is BudgetActionLog => row != null);
     const departmentFilter =
       user.departmentId != null
-        ? "WHERE (u.department_id = ? OR yb.created_by = ?)"
-        : "";
+        ? "WHERE (u.department_id = ? OR yb.created_by = ?) AND qs.status_name NOT LIKE '%after meeting%'"
+        : "WHERE qs.status_name NOT LIKE '%after meeting%'";
     const departmentParams =
       user.departmentId != null ? [user.departmentId, user.userId] : [];
     const budgets = await query<LifecycleBudget[]>(

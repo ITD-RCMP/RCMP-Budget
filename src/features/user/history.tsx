@@ -74,17 +74,18 @@ function formatRm(value: number) {
   })}`;
 }
 
-function StatusPill({ status }: { status: Status }) {
+function StatusPill({ status, label }: { status: Status; label?: string }) {
   const { icon: Icon, tone } = statusConfig[status];
   return (
     <span
       className={cn(
-        "inline-flex w-28 items-center justify-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
+        "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
+        label ? "w-auto" : "w-28",
         tone,
       )}
     >
       <Icon className="h-3.5 w-3.5" />
-      {status}
+      {label ?? status}
     </span>
   );
 }
@@ -293,7 +294,14 @@ export function HistoryPage() {
                         <span className="text-sm font-medium tabular-nums">
                           {formatRm(row.amount)}
                         </span>
-                        <StatusPill status={row.status} />
+                        <StatusPill
+                          status={row.status}
+                          label={
+                            row.statusName.toLowerCase().includes("after meeting")
+                              ? "Rejected after meeting"
+                              : undefined
+                          }
+                        />
                       </div>
                     </Link>
                   </li>
@@ -532,14 +540,21 @@ function BudgetDetailCard({
 }) {
   const { icon: StatusIcon, tone } = statusConfig[detail.status];
   const isCapex = detail.budgetType === "CAPEX";
-  const canEdit = detail.isMine && formEnabled;
+  const closedAfterMeeting = detail.statusName
+    .toLowerCase()
+    .includes("after meeting");
+  const statusLabel = closedAfterMeeting
+    ? "Rejected after meeting"
+    : detail.status;
+  const canEdit = detail.isMine && formEnabled && !closedAfterMeeting;
   const canDelete =
     (detail.status === "Pending" || detail.status === "Rejected") &&
-    detail.isMine;
+    detail.isMine &&
+    !closedAfterMeeting;
   const canTransfer =
     detail.status === "Pending" && detail.isMine && formEnabled;
-  const canUpdateBudget = detail.isMine;
-  const isResubmit = detail.status === "Rejected";
+  const canUpdateBudget = detail.isMine && !closedAfterMeeting;
+  const isResubmit = detail.status === "Rejected" && !closedAfterMeeting;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1105,7 +1120,7 @@ function BudgetDetailCard({
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${tone}`}
                     >
                       <StatusIcon className="h-3.5 w-3.5" />
-                      {detail.status}
+                      {statusLabel}
                     </span>
                   </div>
                   {(canEdit ||

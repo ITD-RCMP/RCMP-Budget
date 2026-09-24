@@ -57,6 +57,26 @@ const actionTone: Record<BudgetActionLog["action"], string> = {
   reject: "bg-rose-100 text-rose-800",
 };
 
+const actionFeedTone: Record<BudgetActionLog["action"], string> = {
+  submit: "text-stone-600",
+  edit: "text-sky-700",
+  transfer: "text-amber-700",
+  delete: "text-rose-700",
+  update_budget: "text-emerald-700",
+  approve: "text-lime-foreground",
+  reject: "text-rose-600",
+};
+
+const actionFeedIconTone: Record<BudgetActionLog["action"], string> = {
+  submit: "text-stone-400",
+  edit: "text-sky-500",
+  transfer: "text-amber-500",
+  delete: "text-rose-500",
+  update_budget: "text-emerald-500",
+  approve: "text-lime-foreground/70",
+  reject: "text-rose-500",
+};
+
 function groupLogsByDay(logs: BudgetActionLog[]) {
   const groups: { label: string; rows: BudgetActionLog[] }[] = [];
   for (const row of logs) {
@@ -176,8 +196,18 @@ export function BudgetLogList({
                   <li key={row.id} className="py-3.5">
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="min-w-0 truncate text-sm">
-                        <span className="inline-flex items-center gap-1.5 font-medium">
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 font-medium",
+                            actionFeedTone[row.action],
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0",
+                              actionFeedIconTone[row.action],
+                            )}
+                          />
                           {actionLabel[row.action]}
                         </span>
                         <span className="text-foreground/30"> · </span>

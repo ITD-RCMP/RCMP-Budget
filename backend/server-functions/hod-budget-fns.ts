@@ -452,6 +452,9 @@ export const getHodBudget = createServerFn({ method: "GET" })
     if (!row) {
       throw new Error("Budget not found. Refresh the list and try again.");
     }
+    if (row.status_name.toLowerCase().includes("after meeting")) {
+      throw new Error("Budget not found. Refresh the list and try again.");
+    }
 
     return toDetail(row);
   });
@@ -669,6 +672,112 @@ export const reviewHodBudget = createServerFn({ method: "POST" })
       status: data.decision,
       statusName: data.decision === "Approved" ? "approved budget" : "rejected budget",
     };
+  });
+
+const MEETING_REJECTED_STATUS_ID = 14;
+const MEETING_REJECTED_REMARKS = "Rejected after meeting";
+
+export const rejectHodBudgetAfterMeeting = createServerFn({ method: "POST" })
+  .validator(z.object({ budgetId: z.number().int().positive() }))
+  .middleware([hodOnly])
+  .handler(async ({ data, context }): Promise<{ budgetId: number }> => {
+    const { user } = context;
+    const { query } = await import("@backend/core/db");
+    const params: unknown[] = [data.budgetId];
+    let departmentFilter = "";
+    if (user.departmentId != null) {
+      departmentFilter = "AND u.department_id = ?";
+      params.push(user.departmentId);
+    }
+
+    const rows = await query<BudgetRow[]>(
+      `SELECT
+         yb.budget_id,
+         yb.budget_ref,
+         yb.budget_year,
+         yb.budget_type,
+         yb.code,
+         yb.activity,
+         (SELECT bi.item_name
+          FROM budget_items bi
+          WHERE bi.budget_id = yb.budget_id
+          ORDER BY bi.budget_item_id ASC
+          LIMIT 1) AS item_name,
+         yb.budget_amount,
+         yb.created_at,
+         yb.created_by,
+         qs.status_name,
+         u.email AS requester_email,
+         u.department_id,
+         d.department_name AS department,
+         u.designation
+       FROM yearly_budgets yb
+       INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
+       INNER JOIN users u ON u.user_id = yb.created_by
+       LEFT JOIN departments d ON d.department_id = u.department_id
+       WHERE yb.budget_id = ?
+       ${departmentFilter}
+       LIMIT 1`,
+      params,
+    );
+
+    const row = rows[0];
+    if (!row) {
+      throw new Error("Budget not found. Refresh the list and try again.");
+    }
+    if (mapStatus(row.status_name) !== "Approved") {
+      throw new Error("Only approved budgets can be closed after a meeting.");
+    }
+
+    const existing = await query<Array<{ status_id: number }>>(
+      `SELECT status_id FROM quotation_statuses WHERE status_id = ? LIMIT 1`,
+      [MEETING_REJECTED_STATUS_ID],
+    );
+    if (!existing[0]) {
+      await query(
+        `INSERT INTO quotation_statuses (status_id, status_name) VALUES (?, ?)`,
+        [MEETING_REJECTED_STATUS_ID, "rejected after meeting"],
+      );
+    }
+
+    const before = await fetchBudgetDetail(
+      (sql, queryParams) => query<BudgetRow[]>(sql, queryParams),
+      data.budgetId,
+    );
+
+    await query(
+      `UPDATE yearly_budgets
+       SET status_id = ?, reject_remarks = ?
+       WHERE budget_id = ?`,
+      [MEETING_REJECTED_STATUS_ID, MEETING_REJECTED_REMARKS, data.budgetId],
+    );
+
+    try {
+      const updated = await fetchBudgetDetail(
+        (sql, queryParams) => query<BudgetRow[]>(sql, queryParams),
+        data.budgetId,
+      );
+      await insertBudgetActionLog(query, {
+        budgetId: data.budgetId,
+        budgetYear: Number(row.budget_year),
+        budgetType: row.budget_type === "CAPEX" ? "CAPEX" : "OPEX",
+        action: "reject",
+        actorUserId: user.userId,
+        ownerUserId: row.created_by ?? user.userId,
+        ownerDepartmentId: row.department_id ?? null,
+        remarks: MEETING_REJECTED_REMARKS,
+        oldValues: snapshotFromHodDetail(before),
+        newValues: snapshotFromHodDetail(updated),
+      });
+    } catch {
+      await query(
+        `UPDATE yearly_budgets SET status_id = ?, reject_remarks = NULL WHERE budget_id = ?`,
+        [APPROVED_BUDGET_STATUS_ID, data.budgetId],
+      );
+      throw new Error("Could not save this change. Try again.");
+    }
+
+    return { budgetId: data.budgetId };
   });
 
 const CAPEX_TRANSFER_CODES = ["200-1100", "200-1000", "200-0500"] as const;

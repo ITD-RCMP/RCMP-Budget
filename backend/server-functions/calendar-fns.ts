@@ -108,6 +108,7 @@ export const listDepartmentCalendarEvents = createServerFn({
        INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
        INNER JOIN users u ON u.user_id = yb.created_by
        WHERE 1 = 1
+         AND qs.status_name NOT LIKE '%after meeting%'
        ${departmentFilter}
        ORDER BY yb.created_at DESC, yb.budget_id DESC`,
       params,
