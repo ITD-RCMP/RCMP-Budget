@@ -187,35 +187,40 @@ function OpexCostBreakdown({ items }: { items: HodBudgetItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2 border-t border-foreground/10 pt-2">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="rounded-lg bg-ivory/80 px-2.5 py-2"
-        >
-          <p className="text-xs font-medium text-foreground">
-            {item.itemName?.trim() || "Item"}
-          </p>
-          <dl className="mt-1.5 space-y-0.5 text-[11px] leading-snug">
-            <div className="flex justify-between gap-3">
-              <dt className="text-foreground/45">Qty</dt>
-              <dd className="tabular-nums text-foreground/80">{item.quantity}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-foreground/45">Each</dt>
-              <dd className="tabular-nums text-foreground/80">
-                RM {formatRm(item.costPerUnit)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-foreground/45">Total</dt>
-              <dd className="font-medium tabular-nums">
-                RM {formatRm(item.amount)}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      ))}
+    <div className="mt-2 border-t border-foreground/10 pt-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-2 pb-1 text-[10px] font-medium tracking-wide text-foreground/45 uppercase">
+        <span>Item</span>
+        <span className="text-right">Qty</span>
+        <span className="text-right">Each</span>
+        <span className="text-right">Total</span>
+      </div>
+      <ul>
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-baseline gap-x-2 border-b border-foreground/8 py-1.5 text-[11px] leading-snug last:border-b-0"
+          >
+            <span className="min-w-0 truncate font-medium text-foreground">
+              {item.itemName?.trim() || "Item"}
+            </span>
+            <span className="tabular-nums text-foreground/70">
+              {item.quantity}
+            </span>
+            <span className="tabular-nums text-foreground/70">
+              RM {formatRm(item.costPerUnit)}
+            </span>
+            <span className="font-medium tabular-nums">
+              RM {formatRm(item.amount)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-foreground/10 pt-1.5 text-[11px] font-medium">
+        <span>Items total</span>
+        <span className="tabular-nums">
+          RM {formatRm(items.reduce((sum, item) => sum + item.amount, 0))}
+        </span>
+      </div>
     </div>
   );
 }
@@ -743,9 +748,10 @@ export function HodReportPage() {
 
         <div
           className={cn(
-            "mt-6 rounded-[1.5rem] glass-card p-6 md:p-8",
-            maximized &&
-              "fixed inset-0 z-50 mt-0 flex h-screen w-screen flex-col overflow-hidden rounded-none p-6 md:p-8",
+            "mt-6 rounded-[1.5rem] p-6 md:p-8",
+            maximized
+              ? "fixed inset-0 z-50 mt-0 flex h-screen w-screen flex-col overflow-hidden rounded-none bg-background"
+              : "glass-card",
           )}
         >
           {view === "opex" && (
