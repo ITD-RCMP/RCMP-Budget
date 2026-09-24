@@ -38,6 +38,8 @@ export function HodLogsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [action, setAction] = useState<ActionFilter>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -61,23 +63,28 @@ export function HodLogsPage() {
     };
   }, []);
 
+  const datedLogs = useMemo(
+    () => logs.filter((row) => inDateRange(row.createdAt, fromDate, toDate)),
+    [logs, fromDate, toDate],
+  );
+
   const counts = useMemo(() => {
     let updates = 0;
     let edits = 0;
     let transfers = 0;
-    for (const row of logs) {
+    for (const row of datedLogs) {
       if (row.action === "update_budget") updates += 1;
       if (row.action === "edit") edits += 1;
       if (row.action === "transfer") transfers += 1;
     }
-    return { total: logs.length, updates, edits, transfers };
-  }, [logs]);
+    return { total: datedLogs.length, updates, edits, transfers };
+  }, [datedLogs]);
 
   const visibleLogs = useMemo(() => {
-    const searched = filterBudgetLogs(logs, query);
+    const searched = filterBudgetLogs(datedLogs, query);
     if (action === "all") return searched;
     return searched.filter((row) => row.action === action);
-  }, [logs, query, action]);
+  }, [datedLogs, query, action]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
@@ -140,14 +147,38 @@ export function HodLogsPage() {
                 </button>
               ))}
             </div>
-            <div className="relative w-full lg:w-64">
-              <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-foreground/40" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search ref or email"
-                className="h-11 rounded-full pl-11"
-              />
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+              <label className="flex items-center gap-2 text-xs text-foreground/50">
+                From
+                <Input
+                  type="date"
+                  value={fromDate}
+                  max={toDate || undefined}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  aria-label="From date"
+                  className="h-11 w-[9.5rem] rounded-full"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-foreground/50">
+                To
+                <Input
+                  type="date"
+                  value={toDate}
+                  min={fromDate || undefined}
+                  onChange={(e) => setToDate(e.target.value)}
+                  aria-label="To date"
+                  className="h-11 w-[9.5rem] rounded-full"
+                />
+              </label>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search ref or email"
+                  className="h-11 rounded-full pl-11"
+                />
+              </div>
             </div>
           </div>
 
@@ -167,6 +198,19 @@ export function HodLogsPage() {
       </main>
     </div>
   );
+}
+
+function inDateRange(createdAt: string, from: string, to: string) {
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return false;
+  const day = [
+    created.getFullYear(),
+    String(created.getMonth() + 1).padStart(2, "0"),
+    String(created.getDate()).padStart(2, "0"),
+  ].join("-");
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
 }
 
 function SummaryCard({

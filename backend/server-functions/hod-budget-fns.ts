@@ -8,6 +8,7 @@ import {
 } from "@backend/core/budget-action-log";
 import { nextBudgetRef } from "@backend/core/budget-ref";
 
+const PENDING_BUDGET_STATUS_ID = 11;
 const APPROVED_BUDGET_STATUS_ID = 12;
 const REJECTED_BUDGET_STATUS_ID = 13;
 
@@ -616,6 +617,11 @@ export const reviewHodBudget = createServerFn({ method: "POST" })
       throw new Error("This budget was already reviewed.");
     }
 
+    const before = await fetchBudgetDetail(
+      (sql, params) => query<BudgetRow[]>(sql, params),
+      data.budgetId,
+    );
+
     const nextStatusId =
       data.decision === "Approved" ? APPROVED_BUDGET_STATUS_ID : REJECTED_BUDGET_STATUS_ID;
 
@@ -633,11 +639,11 @@ export const reviewHodBudget = createServerFn({ method: "POST" })
       ]);
     }
 
+    const updated = await fetchBudgetDetail(
+      (sql, params) => query<BudgetRow[]>(sql, params),
+      data.budgetId,
+    );
     try {
-      const updated = await fetchBudgetDetail(
-        (sql, params) => query<BudgetRow[]>(sql, params),
-        data.budgetId,
-      );
       await insertBudgetActionLog(query, {
         budgetId: data.budgetId,
         budgetYear: Number(row.budget_year),
@@ -647,11 +653,15 @@ export const reviewHodBudget = createServerFn({ method: "POST" })
         ownerUserId: row.created_by ?? user.userId,
         ownerDepartmentId: row.department_id ?? null,
         remarks: data.rejectRemarks ?? null,
-        oldValues: snapshotFromHodDetail(updated),
+        oldValues: snapshotFromHodDetail(before),
         newValues: snapshotFromHodDetail(updated),
       });
     } catch {
-      /* review still saved if log action is not supported */
+      await query(
+        `UPDATE yearly_budgets SET status_id = ?, reject_remarks = NULL WHERE budget_id = ?`,
+        [PENDING_BUDGET_STATUS_ID, data.budgetId],
+      );
+      throw new Error("Could not save this review. Try again.");
     }
 
     return {
@@ -1142,7 +1152,37 @@ export const createHodBudget = createServerFn({ method: "POST" })
       throw new Error("Could not add this budget line. Try again.");
     }
 
-    return fetchBudgetDetail(query, insertId);
+    const created = await fetchBudgetDetail(query, insertId);
+    const snapshot = snapshotFromHodDetail(created);
+    try {
+      await insertBudgetActionLog(query, {
+        budgetId: insertId,
+        budgetYear: created.budgetYear,
+        budgetType: created.budgetType,
+        action: "submit",
+        actorUserId: user.userId,
+        ownerUserId: user.userId,
+        ownerDepartmentId: user.departmentId,
+        oldValues: snapshot,
+        newValues: snapshot,
+      });
+      await insertBudgetActionLog(query, {
+        budgetId: insertId,
+        budgetYear: created.budgetYear,
+        budgetType: created.budgetType,
+        action: "approve",
+        actorUserId: user.userId,
+        ownerUserId: user.userId,
+        ownerDepartmentId: user.departmentId,
+        oldValues: snapshot,
+        newValues: snapshot,
+      });
+    } catch {
+      await query(`DELETE FROM yearly_budgets WHERE budget_id = ?`, [insertId]);
+      throw new Error("Could not add this budget line. Try again.");
+    }
+
+    return created;
   });
 
 export const updateHodApprovedBudget = createServerFn({ method: "POST" })

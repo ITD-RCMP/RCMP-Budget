@@ -1133,13 +1133,13 @@ function DetailOverlay({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/20 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-foreground/30 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] glass-card p-6 md:p-8"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] border border-foreground/10 bg-background p-6 shadow-xl md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -1179,7 +1179,7 @@ function ActionIconButton({
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="z-[60]">
+      <TooltipContent side="top" className="z-[210]">
         {description}
       </TooltipContent>
     </Tooltip>
@@ -1515,7 +1515,7 @@ function TransferBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select CAPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {CAPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -1639,7 +1639,7 @@ function TransferBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select OPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {OPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -1900,7 +1900,7 @@ function EditBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select CAPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {CAPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -2025,7 +2025,7 @@ function EditBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select OPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {OPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -2276,7 +2276,7 @@ function AddBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select CAPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {CAPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -2392,7 +2392,7 @@ function AddBudgetCard({
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Select OPEX code" />
                 </SelectTrigger>
-                <SelectContent className="z-[110]">
+                <SelectContent className="z-[210]">
                   {OPEX_CODES.map((entry) => (
                     <SelectItem key={entry.value} value={entry.value}>
                       {entry.label}
@@ -2538,7 +2538,9 @@ function OpexTable({
               OPEX budget (RM)
             </th>
             <th className="border border-foreground/20 px-3 py-3">Status</th>
-            <th className="border border-foreground/20 px-3 py-3">Action</th>
+            <th className="sticky right-0 z-10 border border-foreground/20 bg-[#ebe6dc] px-3 py-3 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -2582,7 +2584,12 @@ function OpexTable({
                     {row.requester || "—"}
                   </p>
                 </td>
-                <td className="border border-foreground/15 px-3 py-3 text-center">
+                <td
+                  className={cn(
+                    "sticky right-0 z-10 border border-foreground/15 px-3 py-3 text-center shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]",
+                    index % 2 === 0 ? "bg-background" : "bg-[#f3f1eb]",
+                  )}
+                >
                   <BudgetActions
                     row={row}
                     reviewing={reviewingKey === `yb-${row.id}`}
@@ -2692,7 +2699,9 @@ function CapexTable({
               Alternative more cost-effective
             </th>
             <th className="border border-foreground/20 px-3 py-3">Status</th>
-            <th className="border border-foreground/20 px-3 py-3">Action</th>
+            <th className="sticky right-0 z-10 border border-foreground/20 bg-[#ebe6dc] px-3 py-3 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -2744,7 +2753,12 @@ function CapexTable({
                   {row.requester || "—"}
                 </p>
               </td>
-              <td className="border border-foreground/15 px-3 py-3 text-center">
+              <td
+                className={cn(
+                  "sticky right-0 z-10 border border-foreground/15 px-3 py-3 text-center shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]",
+                  index % 2 === 0 ? "bg-background" : "bg-[#f3f1eb]",
+                )}
+              >
                 <BudgetActions
                   row={row}
                   reviewing={reviewingKey === `yb-${row.id}`}

@@ -362,7 +362,6 @@ export function UpdateApprovedBudgetForm({
   );
   const [qty, setQty] = useState(quantity ?? 1);
   const [unit, setUnit] = useState(costPerUnit == null ? "" : String(costPerUnit));
-  const [budgetAmount, setBudgetAmount] = useState(String(amount));
   const [opexItems, setOpexItems] = useState<EditableItem[]>(() =>
     items.length > 0
       ? items.map((item) => ({
@@ -383,7 +382,7 @@ export function UpdateApprovedBudgetForm({
   const [remarks, setRemarks] = useState("");
 
   const unitValue = Number(unit) || 0;
-  const amountValue = Number(budgetAmount) || 0;
+  const amountValue = Math.round(qty * unitValue * 100) / 100;
   const opexTotal = opexItems.reduce((sum, item) => sum + lineAmount(item), 0);
   const readyOpexItems = opexItems.filter(
     (item) =>
@@ -402,10 +401,6 @@ export function UpdateApprovedBudgetForm({
       return;
     }
     if (isCapex) {
-      if (amountValue <= 0) {
-        toast.error("Enter an amount above zero, then try again.");
-        return;
-      }
       if (qty < 1 || unitValue <= 0) {
         toast.error("Enter quantity and unit cost, then try again.");
         return;
@@ -494,17 +489,10 @@ export function UpdateApprovedBudgetForm({
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="update-price">Estimated price (RM)</Label>
-              <Input
-                id="update-price"
-                inputMode="decimal"
-                value={budgetAmount}
-                onChange={(e) =>
-                  setBudgetAmount(e.target.value.replace(/[^\d.]/g, ""))
-                }
-                disabled={saving}
-                className="h-11 rounded-xl tabular-nums"
-              />
+              <p className="text-sm font-medium">Estimated price (RM)</p>
+              <p className="flex h-11 items-center rounded-xl bg-ivory/70 px-3 text-sm font-semibold tabular-nums">
+                {formatRm(amountValue)}
+              </p>
             </div>
           </>
         ) : (

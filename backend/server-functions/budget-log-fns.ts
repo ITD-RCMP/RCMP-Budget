@@ -42,15 +42,16 @@ type LogRow = {
 
 function formatLogDate(value: Date | string) {
   const created = value instanceof Date ? value : new Date(value);
+  const when = Number.isNaN(created.getTime()) ? new Date() : created;
   return {
-    date: created.toLocaleString("en-p", {
+    date: when.toLocaleString("en-MY", {
       day: "numeric",
       month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     }),
-    createdAt: created.toISOString(),
+    createdAt: when.toISOString(),
   };
 }
 
@@ -135,77 +136,90 @@ export const listMyBudgetLogsForBudget = createServerFn({ method: "GET" })
     const rows = await query<LogRow[]>(
       `${logSelect}
        WHERE l.budget_id = ?
-         AND l.owner_user_id = ?
+         AND (
+           l.owner_user_id = ?
+           OR EXISTS (
+             SELECT 1 FROM yearly_budgets owned
+             WHERE owned.budget_id = l.budget_id
+               AND owned.created_by = ?
+           )
+         )
        ORDER BY l.created_at DESC, l.log_id DESC`,
-      [data.budgetId, user.userId],
+      [data.budgetId, user.userId, user.userId],
     );
     const logs = rows.map(toLog).filter((row): row is BudgetActionLog => row != null);
-
-    const budgets = await query<
-      Array<{
-        budget_id: number;
-        budget_ref: string | null;
-        budget_year: number;
-        budget_type: string;
-        created_at: Date | string;
-        updated_at?: Date | string | null;
-        status_name: string;
-        reject_remarks: string | null;
-        email: string;
-        code: string;
-        activity: string | null;
-        item_name: string | null;
-        target_months: string | null;
-        objective: string | null;
-        justification: string;
-        quantity: number | null;
-        cost_per_unit: string | number | null;
-        budget_amount: string | number;
-        effect_if_not_approved: string | null;
-        alternative: string | null;
-        remarks: string | null;
-      }>
-    >(
-      `SELECT
-         yb.budget_id,
-         yb.budget_ref,
-         yb.budget_year,
-         yb.budget_type,
-         yb.created_at,
-         yb.updated_at,
-         qs.status_name,
-         yb.reject_remarks,
-         u.email,
-         yb.code,
-         yb.activity,
-         (SELECT bi.item_name FROM budget_items bi
-           WHERE bi.budget_id = yb.budget_id
-           ORDER BY bi.budget_item_id ASC LIMIT 1) AS item_name,
-         yb.target_months,
-         yb.objective,
-         yb.justification,
-         (SELECT bi.quantity FROM budget_items bi
-           WHERE bi.budget_id = yb.budget_id
-           ORDER BY bi.budget_item_id ASC LIMIT 1) AS quantity,
-         (SELECT bi.cost_per_unit FROM budget_items bi
-           WHERE bi.budget_id = yb.budget_id
-           ORDER BY bi.budget_item_id ASC LIMIT 1) AS cost_per_unit,
-         yb.budget_amount,
-         yb.effect_if_not_approved,
-         yb.alternative,
-         yb.remarks
-       FROM yearly_budgets yb
-       INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
-       INNER JOIN users u ON u.user_id = yb.created_by
+    const budgets = await query<LifecycleBudget[]>(
+      `${lifecycleSelect}
        WHERE yb.budget_id = ?
          AND yb.created_by = ?
        LIMIT 1`,
       [data.budgetId, user.userId],
     );
 
-    const budget = budgets[0];
-    if (!budget) return logs;
+    return withLifecycle(logs, budgets);
+  });
 
+type LifecycleBudget = {
+  budget_id: number;
+  budget_ref: string | null;
+  budget_year: number;
+  budget_type: string;
+  created_at: Date | string;
+  updated_at?: Date | string | null;
+  status_name: string;
+  reject_remarks: string | null;
+  email: string;
+  code: string;
+  activity: string | null;
+  item_name: string | null;
+  target_months: string | null;
+  objective: string | null;
+  justification: string;
+  quantity: number | null;
+  cost_per_unit: string | number | null;
+  budget_amount: string | number;
+  effect_if_not_approved: string | null;
+  alternative: string | null;
+  remarks: string | null;
+};
+
+const lifecycleSelect = `
+  SELECT
+    yb.budget_id,
+    yb.budget_ref,
+    yb.budget_year,
+    yb.budget_type,
+    yb.created_at,
+    yb.updated_at,
+    qs.status_name,
+    yb.reject_remarks,
+    u.email,
+    yb.code,
+    yb.activity,
+    (SELECT bi.item_name FROM budget_items bi
+      WHERE bi.budget_id = yb.budget_id
+      ORDER BY bi.budget_item_id ASC LIMIT 1) AS item_name,
+    yb.target_months,
+    yb.objective,
+    yb.justification,
+    (SELECT bi.quantity FROM budget_items bi
+      WHERE bi.budget_id = yb.budget_id
+      ORDER BY bi.budget_item_id ASC LIMIT 1) AS quantity,
+    (SELECT bi.cost_per_unit FROM budget_items bi
+      WHERE bi.budget_id = yb.budget_id
+      ORDER BY bi.budget_item_id ASC LIMIT 1) AS cost_per_unit,
+    yb.budget_amount,
+    yb.effect_if_not_approved,
+    yb.alternative,
+    yb.remarks
+  FROM yearly_budgets yb
+  INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
+  INNER JOIN users u ON u.user_id = yb.created_by
+`;
+
+function withLifecycle(logs: BudgetActionLog[], budgets: LifecycleBudget[]) {
+  const lifecycle = [...logs];
+  for (const budget of budgets) {
     const snapshot = budgetSnapshot({
       budget_type: budget.budget_type,
       code: budget.code,
@@ -222,11 +236,13 @@ export const listMyBudgetLogsForBudget = createServerFn({ method: "GET" })
       remarks: budget.remarks,
       status_name: budget.status_name,
     });
-
-    const lifecycle: BudgetActionLog[] = [...logs];
     const budgetType = budget.budget_type === "CAPEX" ? "CAPEX" : "OPEX";
+    const has = (action: BudgetAction) =>
+      lifecycle.some(
+        (row) => row.budgetId === budget.budget_id && row.action === action,
+      );
 
-    if (!lifecycle.some((row) => row.action === "submit")) {
+    if (!has("submit")) {
       const { date, createdAt } = formatLogDate(budget.created_at);
       lifecycle.push({
         id: -budget.budget_id,
@@ -247,10 +263,10 @@ export const listMyBudgetLogsForBudget = createServerFn({ method: "GET" })
 
     const status = budget.status_name.toLowerCase();
     const reviewedAt = budget.updated_at ?? budget.created_at;
-    if (status.includes("approved") && !lifecycle.some((row) => row.action === "approve")) {
+    if (status.includes("approved") && !has("approve")) {
       const { date, createdAt } = formatLogDate(reviewedAt);
       lifecycle.push({
-        id: -budget.budget_id - 1,
+        id: -budget.budget_id * 10 - 1,
         budgetId: budget.budget_id,
         budgetRef: budget.budget_ref || "—",
         budgetYear: Number(budget.budget_year),
@@ -265,10 +281,10 @@ export const listMyBudgetLogsForBudget = createServerFn({ method: "GET" })
         createdAt,
       });
     }
-    if (status.includes("rejected") && !lifecycle.some((row) => row.action === "reject")) {
+    if (status.includes("rejected") && !has("reject")) {
       const { date, createdAt } = formatLogDate(reviewedAt);
       lifecycle.push({
-        id: -budget.budget_id - 2,
+        id: -budget.budget_id * 10 - 2,
         budgetId: budget.budget_id,
         budgetRef: budget.budget_ref || "—",
         budgetYear: Number(budget.budget_year),
@@ -283,19 +299,37 @@ export const listMyBudgetLogsForBudget = createServerFn({ method: "GET" })
         createdAt,
       });
     }
+  }
 
-    return lifecycle.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
-        b.id - a.id,
-    );
-  });
+  return lifecycle.sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+      b.id - a.id,
+  );
+}
 
 function hodLogScope(user: AuthUser) {
   if (user.departmentId != null) {
     return {
-      filter: "WHERE (l.owner_department_id = ? OR l.owner_user_id = ?)",
-      params: [user.departmentId, user.userId] as unknown[],
+      filter: `WHERE (
+        l.owner_department_id = ?
+        OR l.owner_user_id = ?
+        OR l.actor_user_id = ?
+        OR EXISTS (
+          SELECT 1
+          FROM yearly_budgets yb2
+          INNER JOIN users u2 ON u2.user_id = yb2.created_by
+          WHERE yb2.budget_id = l.budget_id
+            AND (u2.department_id = ? OR yb2.created_by = ?)
+        )
+      )`,
+      params: [
+        user.departmentId,
+        user.userId,
+        user.userId,
+        user.departmentId,
+        user.userId,
+      ] as unknown[],
     };
   }
   return { filter: "", params: [] as unknown[] };
@@ -313,5 +347,18 @@ export const listHodBudgetLogs = createServerFn({ method: "GET" })
        ORDER BY l.created_at DESC, l.log_id DESC`,
       scope.params,
     );
-    return rows.map(toLog).filter((row): row is BudgetActionLog => row != null);
+    const logs = rows.map(toLog).filter((row): row is BudgetActionLog => row != null);
+    const departmentFilter =
+      user.departmentId != null
+        ? "WHERE (u.department_id = ? OR yb.created_by = ?)"
+        : "";
+    const departmentParams =
+      user.departmentId != null ? [user.departmentId, user.userId] : [];
+    const budgets = await query<LifecycleBudget[]>(
+      `${lifecycleSelect}
+       ${departmentFilter}
+       ORDER BY yb.created_at DESC, yb.budget_id DESC`,
+      departmentParams,
+    );
+    return withLifecycle(logs, budgets);
   });

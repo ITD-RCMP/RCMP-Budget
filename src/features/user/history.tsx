@@ -1417,7 +1417,7 @@ function BudgetDetailCard({
                 logs={logs}
                 loading={logsLoading}
                 compact
-                emptyMessage="No edits, transfers, or amount updates on this request yet."
+                emptyMessage="No activity on this request yet."
               />
             </div>
           </section>
