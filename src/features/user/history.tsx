@@ -1365,38 +1365,43 @@ function BudgetDetailCard({
                   </div>
                 </dl>
               ) : detail.items.length > 0 ? (
-                <ul className="mt-5 space-y-2">
-                  {detail.items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="rounded-xl bg-ivory/80 px-3.5 py-3"
-                    >
-                      <p className="text-sm font-medium">
-                        {item.itemName || "Untitled item"}
-                      </p>
-                      <dl className="mt-1.5 space-y-0.5 text-[11px] leading-snug">
-                        <div className="flex justify-between gap-3">
-                          <dt className="text-foreground/45">Qty</dt>
-                          <dd className="tabular-nums text-foreground/80">
-                            {item.quantity}
-                          </dd>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                          <dt className="text-foreground/45">Each</dt>
-                          <dd className="tabular-nums text-foreground/80">
-                            {formatRm(item.costPerUnit)}
-                          </dd>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                          <dt className="text-foreground/45">Total</dt>
-                          <dd className="font-medium tabular-nums">
-                            {formatRm(item.amount)}
-                          </dd>
-                        </div>
-                      </dl>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-4 border-b border-foreground/10 pb-2 text-[11px] font-medium tracking-wide text-foreground/45 uppercase">
+                    <span>Item</span>
+                    <span className="text-right">Qty</span>
+                    <span className="text-right">Each</span>
+                    <span className="text-right">Total</span>
+                  </div>
+                  <ul>
+                    {detail.items.map((item) => (
+                      <li
+                        key={item.id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-baseline gap-x-4 border-b border-foreground/8 py-3 text-sm last:border-b-0"
+                      >
+                        <span className="min-w-0 truncate font-medium">
+                          {item.itemName || "Untitled item"}
+                        </span>
+                        <span className="tabular-nums text-foreground/70">
+                          {item.quantity}
+                        </span>
+                        <span className="tabular-nums text-foreground/70">
+                          {formatRm(item.costPerUnit)}
+                        </span>
+                        <span className="font-medium tabular-nums">
+                          {formatRm(item.amount)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-1 flex items-center justify-between gap-4 border-t border-foreground/10 pt-3 text-sm font-medium">
+                    <span>Items total</span>
+                    <span className="tabular-nums">
+                      {formatRm(
+                        detail.items.reduce((sum, item) => sum + item.amount, 0),
+                      )}
+                    </span>
+                  </div>
+                </div>
               ) : (
                 <p className="mt-5 text-sm text-foreground/50">
                   No line items on this request.
