@@ -397,6 +397,7 @@ export function HistoryBudgetDetailPage({ budgetId }: { budgetId: number }) {
     <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
+        <div className="mx-auto max-w-5xl">
         <Link
           to="/user/history"
           activeOptions={{ exact: true }}
@@ -426,6 +427,7 @@ export function HistoryBudgetDetailPage({ budgetId }: { budgetId: number }) {
               onDeleted={goBack}
             />
           )}
+        </div>
         </div>
       </main>
     </div>
@@ -563,6 +565,7 @@ function BudgetDetailCard({
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [budgetYear, setBudgetYear] = useState(String(detail.budgetYear));
   const [code, setCode] = useState(detail.code);
   const [activity, setActivity] = useState(detail.activity ?? "");
   const [itemName, setItemName] = useState(detail.itemName ?? "");
@@ -593,6 +596,7 @@ function BudgetDetailCard({
   }, [detail.status]);
 
   const resetForm = () => {
+    setBudgetYear(String(detail.budgetYear));
     setCode(detail.code);
     setActivity(detail.activity ?? "");
     setItemName(detail.itemName ?? "");
@@ -687,6 +691,12 @@ function BudgetDetailCard({
   const handleResubmit = async () => {
     if (saving) return;
 
+    const year = Number(budgetYear);
+    if (!/^\d{4}$/.test(budgetYear) || year < 2000 || year > 2100) {
+      toast.error("Enter a year from 2000 to 2100.");
+      return;
+    }
+
     if (isCapex) {
       if (!code || !itemName.trim() || !justification.trim()) {
         toast.error("Fill in item and justification, then try again.");
@@ -721,6 +731,7 @@ function BudgetDetailCard({
             data: {
               budgetId: detail.id,
               budgetType: "CAPEX",
+              budgetYear: year,
               code,
               itemName: itemName.trim(),
               justification: justification.trim(),
@@ -734,6 +745,7 @@ function BudgetDetailCard({
             data: {
               budgetId: detail.id,
               budgetType: "OPEX",
+              budgetYear: year,
               code,
               activity: activity.trim(),
               targetMonths: targetMonths || undefined,
@@ -751,9 +763,12 @@ function BudgetDetailCard({
           : `${detail.budgetRef} updated`,
         {
           id: toastId,
-          description: isResubmit
-            ? "It is pending HOD review again."
-            : "Details were saved. Amounts were not changed.",
+          description:
+            year !== detail.budgetYear
+              ? "The year was saved and the request is pending review again."
+              : isResubmit
+                ? "It is pending HOD review again."
+                : "Details were saved. Amounts were not changed.",
         },
       );
     } catch (error) {
@@ -806,7 +821,7 @@ function BudgetDetailCard({
     (isCapex ? detail.itemName : detail.activity)?.trim() || detail.budgetRef;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div>
       {editing ? (
         <div className="rounded-[1.5rem] glass-card p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
@@ -816,7 +831,7 @@ function BudgetDetailCard({
               </p>
               <h1 className="mt-1 font-display text-4xl">{detail.budgetRef}</h1>
               <p className="mt-2 text-sm text-foreground/60">
-                FY {detail.budgetYear} · Submitted {detail.date}
+                Submitted {detail.date}
               </p>
             </div>
             <span
@@ -829,6 +844,27 @@ function BudgetDetailCard({
         <div className="mt-6 space-y-4">
           <DetailField label="Submitted by" value={detail.createdByEmail} />
           <DetailField label="Department" value={detail.department || "—"} />
+          <div className="space-y-2">
+            <Label htmlFor="edit-budget-year">Financial year</Label>
+            <div className="relative w-full sm:w-[180px]">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-foreground/45">
+                FY
+              </span>
+              <Input
+                id="edit-budget-year"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={budgetYear}
+                onChange={(e) =>
+                  setBudgetYear(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                disabled={saving}
+                placeholder="2026"
+                className="h-11 rounded-xl pl-10"
+              />
+            </div>
+          </div>
           {detail.rejectRemarks && (
             <DetailField
               label="Rejection remarks"
@@ -1102,8 +1138,8 @@ function BudgetDetailCard({
           )}
 
           <div className="overflow-hidden rounded-[1.5rem] glass-card">
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="p-6 md:p-8">
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="min-w-0 p-6 md:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -1245,7 +1281,7 @@ function BudgetDetailCard({
                     </TooltipProvider>
                   )}
                 </div>
-                <h1 className="mt-4 font-display text-4xl leading-tight">
+                <h1 className="mt-4 font-display text-3xl leading-tight break-words md:text-4xl">
                   {title}
                 </h1>
                 <p className="mt-2 text-sm text-foreground/55">
@@ -1257,7 +1293,7 @@ function BudgetDetailCard({
               </div>
               <div
                 className={cn(
-                  "relative flex flex-col justify-end overflow-hidden p-6 md:p-8",
+                  "relative flex flex-col justify-center overflow-hidden p-6 md:p-8",
                   isCapex ? "bg-amber-100" : "bg-lime text-lime-foreground",
                 )}
               >

@@ -66,7 +66,6 @@ const CAPEX_CODES = [
 ] as const;
 
 const currentYear = new Date().getFullYear();
-const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
 type PriceItem = {
   id: number;
@@ -202,24 +201,26 @@ function BudgetYearField({
             Which financial year is this request for?
           </Label>
           <p className="mt-1 text-sm text-foreground/55">
-            All lines you add below will be saved under this year.
+            Type the 4-digit year. All lines below are saved under it.
           </p>
         </div>
-        <Select value={value} onValueChange={onValueChange}>
-          <SelectTrigger
+        <div className="relative w-full sm:w-[180px]">
+          <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-foreground/45">
+            FY
+          </span>
+          <Input
             id={id}
-            className="h-12 w-full rounded-xl border-lime/30 bg-background text-base font-medium sm:w-[180px]"
-          >
-            <SelectValue placeholder="Select year" />
-          </SelectTrigger>
-          <SelectContent>
-            {yearOptions.map((year) => (
-              <SelectItem key={year} value={String(year)}>
-                FY {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={value}
+            onChange={(e) =>
+              onValueChange(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            placeholder="2026"
+            className="h-12 rounded-xl border-lime/30 bg-background pl-10 text-base font-medium"
+          />
+        </div>
       </div>
     </div>
   );
@@ -573,6 +574,11 @@ export function BudgetFormPage() {
     }
     if (opexEntries.length === 0 && capexEntries.length === 0) {
       toast.error("Add at least one OPEX or CAPEX line before submitting.");
+      return;
+    }
+    const year = Number(budgetYear);
+    if (!/^\d{4}$/.test(budgetYear) || year < 2000 || year > 2100) {
+      toast.error("Enter a year from 2000 to 2100.");
       return;
     }
     if (submitting) return;

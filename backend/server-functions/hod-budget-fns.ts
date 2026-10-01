@@ -317,6 +317,7 @@ async function fetchBudgetDetail(
 
 function snapshotFromHodDetail(detail: HodBudgetDetail) {
   return {
+    budgetYear: detail.budgetYear,
     budgetType: detail.budgetType,
     code: detail.code,
     activity: detail.activity,

@@ -8,6 +8,7 @@ export type BudgetAction =
   | "reject";
 
 export type BudgetSnapshot = {
+  budgetYear: number;
   budgetType: "OPEX" | "CAPEX";
   code: string;
   activity: string | null;
@@ -27,6 +28,7 @@ export type BudgetSnapshot = {
 type QueryFn = (sql: string, params?: unknown[]) => Promise<unknown>;
 
 type SnapshotSource = {
+  budget_year: number;
   budget_type: string;
   code: string;
   activity: string | null;
@@ -45,6 +47,7 @@ type SnapshotSource = {
 
 export function budgetSnapshot(row: SnapshotSource): BudgetSnapshot {
   return {
+    budgetYear: Number(row.budget_year),
     budgetType: row.budget_type === "CAPEX" ? "CAPEX" : "OPEX",
     code: row.code,
     activity: row.activity,

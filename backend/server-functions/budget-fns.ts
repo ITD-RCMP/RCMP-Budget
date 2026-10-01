@@ -428,6 +428,7 @@ export const submitYearlyBudget = createServerFn({ method: "POST" })
             ownerUserId: user.userId,
             ownerDepartmentId: user.departmentId,
             oldValues: budgetSnapshot({
+              budget_year: budgetYear,
               budget_type: "OPEX",
               code: line.code,
               activity: line.activity,
@@ -498,6 +499,7 @@ export const submitYearlyBudget = createServerFn({ method: "POST" })
             ownerUserId: user.userId,
             ownerDepartmentId: user.departmentId,
             oldValues: budgetSnapshot({
+              budget_year: budgetYear,
               budget_type: "CAPEX",
               code: line.code,
               activity: null,
@@ -622,6 +624,7 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
       z.object({
         budgetId: z.number().int().positive(),
         budgetType: z.literal("OPEX"),
+        budgetYear: z.number().int().min(2000).max(2100),
         code: z.string().trim().min(1),
         activity: z.string().trim().min(1),
         targetMonths: z.string().trim().max(7).optional(),
@@ -633,6 +636,7 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
       z.object({
         budgetId: z.number().int().positive(),
         budgetType: z.literal("CAPEX"),
+        budgetYear: z.number().int().min(2000).max(2100),
         code: z.string().trim().min(1),
         itemName: z.string().trim().min(1),
         justification: z.string().trim().min(1),
@@ -687,8 +691,19 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
       throw new Error("This budget cannot be edited. Refresh and try again.");
     }
 
-    const nextStatusId = status === "Approved" ? APPROVED_BUDGET_STATUS_ID : SUBMIT_STATUS_ID;
+    const budgetYear = data.budgetYear;
+    const yearChanged = Number(row.budget_year) !== budgetYear;
+    const nextStatusId = yearChanged
+      ? SUBMIT_STATUS_ID
+      : status === "Approved"
+        ? APPROVED_BUDGET_STATUS_ID
+        : SUBMIT_STATUS_ID;
     const oldValues = budgetSnapshot(row);
+    const budgetType = row.budget_type === "CAPEX" ? "CAPEX" : "OPEX";
+    const budgetRef =
+      Number(row.budget_year) === budgetYear
+        ? row.budget_ref
+        : await nextBudgetRef(query, budgetYear, budgetType);
 
     if (
       (data.budgetType === "OPEX" && row.budget_type !== "OPEX") ||
@@ -701,6 +716,8 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
       await query(
         `UPDATE yearly_budgets
          SET status_id = ?,
+             budget_year = ?,
+             budget_ref = ?,
              code = ?,
              activity = ?,
              target_months = ?,
@@ -711,6 +728,8 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
          WHERE budget_id = ? AND created_by = ?`,
         [
           nextStatusId,
+          budgetYear,
+          budgetRef,
           data.code,
           data.activity,
           data.targetMonths || null,
@@ -741,6 +760,8 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
       await query(
         `UPDATE yearly_budgets
          SET status_id = ?,
+             budget_year = ?,
+             budget_ref = ?,
              code = ?,
              target_months = ?,
              justification = ?,
@@ -751,6 +772,8 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
          WHERE budget_id = ? AND created_by = ?`,
         [
           nextStatusId,
+          budgetYear,
+          budgetRef,
           data.code,
           data.targetMonths || null,
           data.justification,
@@ -790,8 +813,8 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
 
     await insertBudgetActionLog(query, {
       budgetId: data.budgetId,
-      budgetYear: Number(row.budget_year),
-      budgetType: row.budget_type === "CAPEX" ? "CAPEX" : "OPEX",
+      budgetYear,
+      budgetType,
       action: "edit",
       actorUserId: user.userId,
       ownerUserId: row.created_by,

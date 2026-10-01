@@ -89,6 +89,7 @@ function groupLogsByDay(logs: BudgetActionLog[]) {
 }
 
 const fieldLabel: Record<keyof BudgetSnapshot, string> = {
+  budgetYear: "Financial year",
   budgetType: "Type",
   code: "Code",
   activity: "Activity",
@@ -107,6 +108,7 @@ const fieldLabel: Record<keyof BudgetSnapshot, string> = {
 
 function formatValue(key: keyof BudgetSnapshot, value: unknown) {
   if (value == null || value === "") return "—";
+  if (key === "budgetYear") return `FY ${value}`;
   if (key === "amount" || key === "costPerUnit") return formatRm(Number(value));
   return String(value);
 }

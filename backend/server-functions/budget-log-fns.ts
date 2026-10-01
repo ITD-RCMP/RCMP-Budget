@@ -72,6 +72,7 @@ function toLog(row: LogRow): BudgetActionLog | null {
     ownerEmail: row.owner_email,
     remarks: row.remarks,
     oldValues: oldValues ?? {
+      budgetYear: Number(row.budget_year),
       budgetType: row.budget_type === "CAPEX" ? "CAPEX" : "OPEX",
       code: "",
       activity: null,
@@ -221,6 +222,7 @@ function withLifecycle(logs: BudgetActionLog[], budgets: LifecycleBudget[]) {
   const lifecycle = [...logs];
   for (const budget of budgets) {
     const snapshot = budgetSnapshot({
+      budget_year: Number(budget.budget_year),
       budget_type: budget.budget_type,
       code: budget.code,
       activity: budget.activity,
