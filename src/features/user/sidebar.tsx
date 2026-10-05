@@ -6,6 +6,7 @@ import {
   LogOut,
   Menu,
   Building2,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import {
 
 const items: { label: string; icon: LucideIcon; to?: LinkProps["to"] }[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/user" },
+  { label: "Billing", icon: Receipt, to: "/user/billing" },
   { label: "My Department", icon: Building2, to: "/user/department" },
   { label: "History", icon: FileText, to: "/user/history" },
 ];
@@ -166,7 +168,7 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      <aside className="hidden h-screen w-60 shrink-0 flex-col bg-transparent p-5 md:flex">
+      <aside className="sidebar-raised my-3 ml-3 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col rounded-[1.75rem] p-5 md:flex">
         <SidebarNav user={user} />
       </aside>
     </>

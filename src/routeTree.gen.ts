@@ -19,6 +19,7 @@ import { Route as UserRfqRouteImport } from './routes/user/rfq'
 import { Route as UserDepartmentRouteImport } from './routes/user/department'
 import { Route as UserCalendarRouteImport } from './routes/user/calendar'
 import { Route as UserBudgetRouteImport } from './routes/user/budget'
+import { Route as UserBillingRouteImport } from './routes/user/billing'
 import { Route as HodSettingsRouteImport } from './routes/hod/settings'
 import { Route as HodReportsRouteImport } from './routes/hod/reports'
 import { Route as HodLogsRouteImport } from './routes/hod/logs'
@@ -78,6 +79,11 @@ const UserBudgetRoute = UserBudgetRouteImport.update({
   path: '/budget',
   getParentRoute: () => UserRouteRoute,
 } as any)
+const UserBillingRoute = UserBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => UserRouteRoute,
+} as any)
 const HodSettingsRoute = HodSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
   '/hod/settings': typeof HodSettingsRoute
+  '/user/billing': typeof UserBillingRoute
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
   '/hod/settings': typeof HodSettingsRoute
+  '/user/billing': typeof UserBillingRoute
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
   '/hod/settings': typeof HodSettingsRoute
+  '/user/billing': typeof UserBillingRoute
   '/user/budget': typeof UserBudgetRoute
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/hod/logs'
     | '/hod/reports'
     | '/hod/settings'
+    | '/user/billing'
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/hod/logs'
     | '/hod/reports'
     | '/hod/settings'
+    | '/user/billing'
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/hod/logs'
     | '/hod/reports'
     | '/hod/settings'
+    | '/user/billing'
     | '/user/budget'
     | '/user/calendar'
     | '/user/department'
@@ -315,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/budget'
       fullPath: '/user/budget'
       preLoaderRoute: typeof UserBudgetRouteImport
+      parentRoute: typeof UserRouteRoute
+    }
+    '/user/billing': {
+      id: '/user/billing'
+      path: '/billing'
+      fullPath: '/user/billing'
+      preLoaderRoute: typeof UserBillingRouteImport
       parentRoute: typeof UserRouteRoute
     }
     '/hod/settings': {
@@ -411,6 +430,7 @@ const UserHistoryRouteRouteWithChildren =
 
 interface UserRouteRouteChildren {
   UserHistoryRouteRoute: typeof UserHistoryRouteRouteWithChildren
+  UserBillingRoute: typeof UserBillingRoute
   UserBudgetRoute: typeof UserBudgetRoute
   UserCalendarRoute: typeof UserCalendarRoute
   UserDepartmentRoute: typeof UserDepartmentRoute
@@ -420,6 +440,7 @@ interface UserRouteRouteChildren {
 
 const UserRouteRouteChildren: UserRouteRouteChildren = {
   UserHistoryRouteRoute: UserHistoryRouteRouteWithChildren,
+  UserBillingRoute: UserBillingRoute,
   UserBudgetRoute: UserBudgetRoute,
   UserCalendarRoute: UserCalendarRoute,
   UserDepartmentRoute: UserDepartmentRoute,
