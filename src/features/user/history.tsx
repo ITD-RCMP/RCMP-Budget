@@ -44,6 +44,7 @@ import {
   listMyBudgets,
   resubmitYearlyBudget,
   deleteYearlyBudget,
+  transferMeetingRejectedToYear,
   transferYearlyBudget,
   updateApprovedYearlyBudget,
   type BudgetDetail,
@@ -72,6 +73,25 @@ function formatRm(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
+}
+
+const MEETING_REJECTED_STATUS_ID = 14;
+
+function upcomingBudgetYears(budgetYear: number) {
+  const start = Math.max(budgetYear, new Date().getFullYear()) + 1;
+  return Array.from({ length: 5 }, (_, index) => start + index);
+}
+
+function meetingRejectedLabel(statusId: number, statusName: string) {
+  const name = statusName.toLowerCase();
+  if (
+    statusId === MEETING_REJECTED_STATUS_ID ||
+    name.includes("after meeting") ||
+    name.includes("meeting rejected")
+  ) {
+    return "Meeting Rejected";
+  }
+  return undefined;
 }
 
 function StatusPill({ status, label }: { status: Status; label?: string }) {
@@ -296,11 +316,7 @@ export function HistoryPage() {
                         </span>
                         <StatusPill
                           status={row.status}
-                          label={
-                            row.statusName.toLowerCase().includes("after meeting")
-                              ? "Rejected after meeting"
-                              : undefined
-                          }
+                          label={meetingRejectedLabel(row.statusId, row.statusName)}
                         />
                       </div>
                     </Link>
@@ -542,12 +558,9 @@ function BudgetDetailCard({
 }) {
   const { icon: StatusIcon, tone } = statusConfig[detail.status];
   const isCapex = detail.budgetType === "CAPEX";
-  const closedAfterMeeting = detail.statusName
-    .toLowerCase()
-    .includes("after meeting");
-  const statusLabel = closedAfterMeeting
-    ? "Rejected after meeting"
-    : detail.status;
+  const statusLabel =
+    meetingRejectedLabel(detail.statusId, detail.statusName) ?? detail.status;
+  const closedAfterMeeting = statusLabel === "Meeting Rejected";
   const canEdit = detail.isMine && formEnabled && !closedAfterMeeting;
   const canDelete =
     (detail.status === "Pending" || detail.status === "Rejected") &&
@@ -556,6 +569,7 @@ function BudgetDetailCard({
   const canTransfer =
     detail.status === "Pending" && detail.isMine && formEnabled;
   const canUpdateBudget = detail.isMine && !closedAfterMeeting;
+  const canCarryForward = detail.statusId === MEETING_REJECTED_STATUS_ID && detail.isMine;
   const isResubmit = detail.status === "Rejected" && !closedAfterMeeting;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -565,6 +579,11 @@ function BudgetDetailCard({
   const [updateOpen, setUpdateOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [carryOpen, setCarryOpen] = useState(false);
+  const [carryYear, setCarryYear] = useState(
+    () => String(upcomingBudgetYears(detail.budgetYear)[0]),
+  );
+  const [carrying, setCarrying] = useState(false);
   const [budgetYear, setBudgetYear] = useState(String(detail.budgetYear));
   const [code, setCode] = useState(detail.code);
   const [activity, setActivity] = useState(detail.activity ?? "");
@@ -783,8 +802,45 @@ function BudgetDetailCard({
     }
   };
 
+  const closeCarry = () => {
+    if (carrying) return;
+    setCarryOpen(false);
+  };
+
+  const handleCarryForward = async () => {
+    if (carrying || !canCarryForward) return;
+    const year = Number(carryYear);
+    const allowed = upcomingBudgetYears(detail.budgetYear);
+    if (!allowed.includes(year)) {
+      toast.error("Choose an upcoming year, then try again.");
+      return;
+    }
+    setCarrying(true);
+    const toastId = toast.loading(`Moving ${detail.budgetRef} to FY ${year}…`);
+    try {
+      const updated = await transferMeetingRejectedToYear({
+        data: { budgetId: detail.id, budgetYear: year },
+      });
+      onResubmitted(updated);
+      setCarryOpen(false);
+      toast.success(`${updated.budgetRef} moved to FY ${year}`, {
+        id: toastId,
+        description: "It is pending review again.",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not move this budget. Try again.",
+        { id: toastId },
+      );
+    } finally {
+      setCarrying(false);
+    }
+  };
+
   const handleDelete = async () => {
-    if (deleting || !canDelete) return;
+    if (deleting || (!canDelete && !canCarryForward)) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
@@ -1162,7 +1218,8 @@ function BudgetDetailCard({
                   {(canEdit ||
                     canDelete ||
                     canTransfer ||
-                    canUpdateBudget) && (
+                    canUpdateBudget ||
+                    canCarryForward) && (
                     <TooltipProvider delayDuration={200}>
                       <div className="flex items-center gap-1.5">
                         {canEdit && (
@@ -1219,13 +1276,37 @@ function BudgetDetailCard({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {canDelete && (
+                        {canCarryForward && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCarryYear(
+                                    String(upcomingBudgetYears(detail.budgetYear)[0]),
+                                  );
+                                  setConfirmDelete(false);
+                                  setCarryOpen(true);
+                                }}
+                                disabled={deleting || carrying}
+                                aria-label="Transfer to upcoming year"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-sky-800 transition hover:brightness-95 disabled:opacity-50"
+                              >
+                                <ArrowRightLeft className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              Transfer — move this budget to an upcoming year
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {(canDelete || canCarryForward) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
                                 type="button"
                                 onClick={() => void handleDelete()}
-                                disabled={deleting || transferring}
+                                disabled={deleting || transferring || carrying}
                                 aria-label={
                                   confirmDelete
                                     ? isResubmit
@@ -1260,7 +1341,7 @@ function BudgetDetailCard({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {canDelete && confirmDelete && !deleting && (
+                        {(canDelete || canCarryForward) && confirmDelete && !deleting && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
@@ -1474,6 +1555,55 @@ function BudgetDetailCard({
           </section>
         </>
       )}
+
+      {carryOpen &&
+        createPortal(
+          <DetailOverlay onClose={closeCarry}>
+            <div>
+              <p className="text-xs font-medium tracking-wide text-foreground/40 uppercase">
+                Transfer to upcoming year
+              </p>
+              <h2 className="mt-1 font-display text-3xl">{detail.budgetRef}</h2>
+              <p className="mt-2 text-sm text-foreground/60">
+                Move this budget out of FY {detail.budgetYear}. It will be pending review again.
+              </p>
+              <div className="mt-6 space-y-2">
+                <Label htmlFor={`carry-year-${detail.id}`}>Upcoming year</Label>
+                <Select value={carryYear} onValueChange={setCarryYear} disabled={carrying}>
+                  <SelectTrigger id={`carry-year-${detail.id}`} className="h-11 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[110]">
+                    {upcomingBudgetYears(detail.budgetYear).map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        FY {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mt-8 flex flex-wrap items-center gap-2.5 border-t border-foreground/10 pt-6">
+                <button
+                  type="button"
+                  onClick={() => void handleCarryForward()}
+                  disabled={carrying}
+                  className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:opacity-50"
+                >
+                  {carrying ? "Transferring…" : `Transfer to FY ${carryYear}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeCarry}
+                  disabled={carrying}
+                  className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-foreground/60 transition hover:bg-ivory hover:text-foreground disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </DetailOverlay>,
+          document.body,
+        )}
 
       {transferOpen &&
         createPortal(

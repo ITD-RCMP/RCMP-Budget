@@ -21,6 +21,7 @@ export type BudgetListItem = {
   date: string;
   createdAt: string;
   status: BudgetStatus;
+  statusId: number;
   statusName: string;
   createdByEmail: string;
   isMine: boolean;
@@ -55,6 +56,7 @@ export type BudgetDetail = {
   rejectRemarks: string | null;
   date: string;
   status: BudgetStatus;
+  statusId: number;
   statusName: string;
   createdByEmail: string;
   department: string | null;
@@ -133,6 +135,7 @@ type BudgetRow = {
   alternative: string | null;
   remarks: string | null;
   reject_remarks: string | null;
+  status_id: number;
   status_name: string;
   created_at: Date | string;
   email: string;
@@ -149,8 +152,15 @@ function mapBudgetStatus(statusName: string): BudgetStatus {
   return "Pending";
 }
 
-function isClosedAfterMeeting(statusName: string) {
-  return statusName.toLowerCase().includes("after meeting");
+const MEETING_REJECTED_STATUS_ID = 14;
+
+function isClosedAfterMeeting(statusName: string, statusId?: number) {
+  const name = statusName.toLowerCase();
+  return (
+    Number(statusId) === MEETING_REJECTED_STATUS_ID ||
+    name.includes("after meeting") ||
+    name.includes("meeting rejected")
+  );
 }
 
 function budgetTitle(row: Pick<BudgetRow, "budget_type" | "activity" | "item_name">) {
@@ -212,6 +222,7 @@ function toBudgetDetail(
     rejectRemarks: row.reject_remarks,
     date,
     status: mapBudgetStatus(row.status_name),
+    statusId: Number(row.status_id),
     statusName: row.status_name,
     createdByEmail: row.email,
     department: row.department,
@@ -270,6 +281,7 @@ const budgetDetailSelect = `
          yb.reject_remarks,
          yb.created_at,
          yb.created_by,
+         yb.status_id,
          qs.status_name,
          u.email,
          u.department_id,
@@ -558,6 +570,7 @@ export const listMyBudgets = createServerFn({ method: "GET" })
          yb.budget_amount,
          yb.created_at,
          yb.created_by,
+         yb.status_id,
          qs.status_name,
          u.email,
          d.department_name AS department
@@ -583,6 +596,7 @@ export const listMyBudgets = createServerFn({ method: "GET" })
         date,
         createdAt,
         status: mapBudgetStatus(row.status_name),
+        statusId: Number(row.status_id),
         statusName: row.status_name,
         createdByEmail: row.email,
         isMine: true,
@@ -684,7 +698,7 @@ export const resubmitYearlyBudget = createServerFn({ method: "POST" })
     }
 
     const status = mapBudgetStatus(row.status_name);
-    if (isClosedAfterMeeting(row.status_name)) {
+    if (isClosedAfterMeeting(row.status_name, row.status_id)) {
       throw new Error("This budget is closed. No changes can be made.");
     }
     if (status !== "Pending" && status !== "Rejected" && status !== "Approved") {
@@ -856,11 +870,22 @@ export const deleteYearlyBudget = createServerFn({ method: "POST" })
     }
 
     const status = mapBudgetStatus(row.status_name);
-    if (isClosedAfterMeeting(row.status_name)) {
+    const meetingRejected = Number(row.status_id) === MEETING_REJECTED_STATUS_ID;
+    if (!meetingRejected && isClosedAfterMeeting(row.status_name, row.status_id)) {
       throw new Error("This budget is closed. No changes can be made.");
     }
-    if (status !== "Pending" && status !== "Rejected") {
+    if (!meetingRejected && status !== "Pending" && status !== "Rejected") {
       throw new Error("Only pending or rejected budgets can be removed. Refresh and try again.");
+    }
+
+    if (meetingRejected) {
+      await query(`DELETE FROM budget_items WHERE budget_id = ?`, [data.budgetId]);
+      await query(`DELETE FROM budget_action_logs WHERE budget_id = ?`, [data.budgetId]);
+      await query(`DELETE FROM yearly_budgets WHERE budget_id = ? AND created_by = ?`, [
+        data.budgetId,
+        user.userId,
+      ]);
+      return { budgetId: data.budgetId };
     }
 
     await insertBudgetActionLog(query, {
@@ -881,6 +906,89 @@ export const deleteYearlyBudget = createServerFn({ method: "POST" })
     ]);
 
     return { budgetId: data.budgetId };
+  });
+
+export const transferMeetingRejectedToYear = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      budgetId: z.number().int().positive(),
+      budgetYear: z.number().int().min(2000).max(2100),
+    }),
+  )
+  .middleware([authMiddleware])
+  .handler(async ({ data, context }): Promise<BudgetDetail> => {
+    const { user } = context;
+    const { query } = await import("@backend/core/db");
+    const rows = await query<BudgetRow[]>(
+      `SELECT
+         ${budgetDetailSelect}
+       FROM yearly_budgets yb
+       INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
+       INNER JOIN users u ON u.user_id = yb.created_by
+       LEFT JOIN departments d ON d.department_id = u.department_id
+       WHERE yb.budget_id = ?
+         AND yb.created_by = ?
+       LIMIT 1`,
+      [data.budgetId, user.userId],
+    );
+
+    const row = rows[0];
+    if (!row) {
+      throw new Error("Budget not found. Refresh the page and try again.");
+    }
+    if (Number(row.status_id) !== MEETING_REJECTED_STATUS_ID) {
+      throw new Error("This budget cannot be moved. Refresh and try again.");
+    }
+
+    const minYear = Math.max(Number(row.budget_year), new Date().getFullYear()) + 1;
+    if (data.budgetYear < minYear || data.budgetYear > minYear + 4) {
+      throw new Error("Choose an upcoming year, then try again.");
+    }
+
+    const budgetType = row.budget_type === "CAPEX" ? "CAPEX" : "OPEX";
+    const budgetRef = await nextBudgetRef(query, data.budgetYear, budgetType);
+    const oldValues = budgetSnapshot(row);
+
+    await query(
+      `UPDATE yearly_budgets
+       SET status_id = ?,
+           budget_year = ?,
+           budget_ref = ?,
+           reject_remarks = NULL
+       WHERE budget_id = ? AND created_by = ?`,
+      [SUBMIT_STATUS_ID, data.budgetYear, budgetRef, data.budgetId, user.userId],
+    );
+
+    const updatedRows = await query<BudgetRow[]>(
+      `SELECT
+         ${budgetDetailSelect}
+       FROM yearly_budgets yb
+       INNER JOIN quotation_statuses qs ON qs.status_id = yb.status_id
+       INNER JOIN users u ON u.user_id = yb.created_by
+       LEFT JOIN departments d ON d.department_id = u.department_id
+       WHERE yb.budget_id = ?
+       LIMIT 1`,
+      [data.budgetId],
+    );
+    const updated = updatedRows[0];
+    if (!updated) {
+      throw new Error("Budget was moved, but could not reload. Refresh the page.");
+    }
+
+    await insertBudgetActionLog(query, {
+      budgetId: data.budgetId,
+      budgetYear: data.budgetYear,
+      budgetType,
+      action: "transfer",
+      actorUserId: user.userId,
+      ownerUserId: row.created_by,
+      ownerDepartmentId: row.department_id ?? null,
+      remarks: `Moved to FY ${data.budgetYear}`,
+      oldValues,
+      newValues: budgetSnapshot(updated),
+    });
+
+    return toBudgetDetailLoaded(query, updated, user.userId);
   });
 
 const CAPEX_TRANSFER_CODES = ["200-1100", "200-1000", "200-0500"] as const;
@@ -950,7 +1058,7 @@ export const transferYearlyBudget = createServerFn({ method: "POST" })
       throw new Error("Budget not found. Refresh the page and try again.");
     }
 
-    if (isClosedAfterMeeting(row.status_name)) {
+    if (isClosedAfterMeeting(row.status_name, row.status_id)) {
       throw new Error("This budget is closed. No changes can be made.");
     }
 
@@ -1117,7 +1225,7 @@ export const updateApprovedYearlyBudget = createServerFn({ method: "POST" })
       throw new Error("Budget not found. Refresh the page and try again.");
     }
 
-    if (isClosedAfterMeeting(row.status_name)) {
+    if (isClosedAfterMeeting(row.status_name, row.status_id)) {
       throw new Error("This budget is closed. No changes can be made.");
     }
 
