@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
   Pencil,
   ScrollText,
   Search,
@@ -19,6 +21,15 @@ import {
   BudgetLogList,
   filterBudgetLogs,
 } from "@/features/budget-action-log-list";
+
+const PAGE_SIZE = 8;
+
+function pageItems(current: number, total: number) {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, "…", total] as const;
+  if (current >= total - 2) return [1, "…", total - 2, total - 1, total] as const;
+  return [1, "…", current, "…", total] as const;
+}
 
 type ActionFilter = "all" | BudgetActionLog["action"];
 
@@ -40,6 +51,7 @@ export function HodLogsPage() {
   const [action, setAction] = useState<ActionFilter>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +97,14 @@ export function HodLogsPage() {
     if (action === "all") return searched;
     return searched.filter((row) => row.action === action);
   }, [datedLogs, query, action]);
+
+  const pageCount = Math.max(1, Math.ceil(visibleLogs.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedLogs = visibleLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, action, fromDate, toDate]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden app-canvas text-foreground md:flex-row">
@@ -184,7 +204,7 @@ export function HodLogsPage() {
 
           <div className="mt-6">
             <BudgetLogList
-              logs={visibleLogs}
+              logs={pagedLogs}
               loading={loading}
               layout="feed"
               emptyMessage={
@@ -193,6 +213,53 @@ export function HodLogsPage() {
                   : "No logs match your filters."
               }
             />
+            {visibleLogs.length > 0 && (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-foreground/45">
+                  {visibleLogs.length} log{visibleLogs.length === 1 ? "" : "s"}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage(Math.max(1, currentPage - 1))}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm text-foreground/60 transition hover:bg-ivory disabled:opacity-40 sm:px-3"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Previous</span>
+                  </button>
+                  {pageItems(currentPage, pageCount).map((item, index) =>
+                    item === "…" ? (
+                      <span key={`ellipsis-${index}`} className="px-2 text-sm text-foreground/35">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setPage(item)}
+                        className={
+                          item === currentPage
+                            ? "h-8 w-8 rounded-full bg-foreground text-sm text-background transition"
+                            : "h-8 w-8 rounded-full text-sm text-foreground/60 transition hover:bg-ivory"
+                        }
+                      >
+                        {item}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type="button"
+                    disabled={currentPage >= pageCount}
+                    onClick={() => setPage(Math.min(pageCount, currentPage + 1))}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm text-foreground/60 transition hover:bg-ivory disabled:opacity-40 sm:px-3"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>

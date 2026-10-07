@@ -8,7 +8,7 @@ import {
   stampReceivedPdf,
 } from "@/lib/received-stamp";
 
-const userOnly = roleMiddleware("User");
+const billingAccess = roleMiddleware("User", "HOD");
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -18,6 +18,7 @@ export type Billing = {
   supplier: string;
   invoiceDate: string;
   invoiceMonth: string;
+  totalInvoice: number | null;
   createdBy: string;
   hasPdf: boolean;
   emailTo: string[];
@@ -33,6 +34,7 @@ type BillingRow = {
   supplier: string;
   invoice_date: Date | string;
   invoice_month: string;
+  total_invoice: string | number | null;
   creator_email: string;
   pdf_path: string | null;
   email_to: string | null;
@@ -60,6 +62,7 @@ function toBilling(row: BillingRow): Billing {
     supplier: row.supplier,
     invoiceDate: toDateOnly(row.invoice_date),
     invoiceMonth: row.invoice_month,
+    totalInvoice: row.total_invoice == null ? null : Number(row.total_invoice),
     createdBy: row.creator_email,
     hasPdf: Boolean(row.pdf_path),
     emailTo: row.email_to ? row.email_to.split(",") : [],
@@ -154,7 +157,7 @@ async function nextInvoiceRef(
 }
 
 export const listBillings = createServerFn({ method: "GET" })
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ context }): Promise<Billing[]> => {
     const { query } = await import("@backend/core/db");
     const scope = billingScope(context.user);
@@ -174,10 +177,11 @@ export const createBilling = createServerFn({ method: "POST" })
     z.object({
       supplier: z.string().trim().min(1).max(255),
       invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      totalInvoice: z.number().positive().max(99999999.99),
       pdfBase64: z.string().min(1),
     }),
   )
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ data, context }): Promise<{ id: number; invoiceRef: string }> => {
     const { user } = context;
     if (user.departmentId == null) {
@@ -196,14 +200,15 @@ export const createBilling = createServerFn({ method: "POST" })
       try {
         const result = await query<{ insertId: number }>(
           `INSERT INTO billings
-             (invoice_ref, department_id, created_by, supplier, invoice_date, pdf_path)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+             (invoice_ref, department_id, created_by, supplier, invoice_date, total_invoice, pdf_path)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             invoiceRef,
             user.departmentId,
             user.userId,
             data.supplier,
             data.invoiceDate,
+            Math.round(data.totalInvoice * 100) / 100,
             pdfPath,
           ],
         );
@@ -225,7 +230,7 @@ export const createBilling = createServerFn({ method: "POST" })
 
 export const getBillingPdf = createServerFn({ method: "GET" })
   .validator(billingIdSchema)
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ data, context }): Promise<{ fileName: string; data: string }> => {
     const row = await findBilling(context.user, data.billingId);
     if (!row.pdf_path) throw new Error("This bill has no PDF yet. Scan the invoice first.");
@@ -243,13 +248,16 @@ export const sendBillingEmail = createServerFn({ method: "POST" })
       message: z.string().trim().max(2000),
     }),
   )
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ data, context }): Promise<{ sentAt: string }> => {
     const row = await findBilling(context.user, data.billingId);
     if (!row.acknowledged_at) {
       throw new Error("Acknowledge this invoice before sending it.");
     }
     if (!row.pdf_path) throw new Error("This bill has no PDF yet. Scan the invoice first.");
+    if (data.to.some((email) => !email.toLowerCase().endsWith("@unikl.edu.my"))) {
+      throw new Error("Use an email that ends with @unikl.edu.my, then try again.");
+    }
 
     const { loadEnvFile } = await import("@backend/core/env");
     loadEnvFile();
@@ -304,7 +312,7 @@ export const sendBillingEmail = createServerFn({ method: "POST" })
 
 export const getBilling = createServerFn({ method: "GET" })
   .validator(billingIdSchema)
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ data, context }): Promise<Billing> => {
     const row = await findBilling(context.user, data.billingId);
     return toBilling(row);
@@ -316,7 +324,7 @@ export const acknowledgeBilling = createServerFn({ method: "POST" })
       confirmed: z.boolean(),
     }),
   )
-  .middleware([userOnly])
+  .middleware([billingAccess])
   .handler(async ({ data, context }): Promise<void> => {
     if (!data.confirmed) {
       throw new Error("Tick the box, then submit.");

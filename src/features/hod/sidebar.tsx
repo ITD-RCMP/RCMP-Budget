@@ -6,6 +6,7 @@ import {
   LogOut,
   Menu,
   FileChartColumn,
+  Receipt,
   ScrollText,
   type LucideIcon,
 } from "lucide-react";
@@ -22,8 +23,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-const items: { label: string; icon: LucideIcon; to?: LinkProps["to"] }[] = [
+const items: { label: string; icon: LucideIcon; to?: LinkProps["to"]; exact?: boolean }[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/hod" },
+  { label: "Billing", icon: Receipt, to: "/hod/billing", exact: false },
   { label: "Reports", icon: FileChartColumn, to: "/hod/reports" },
   { label: "Logs", icon: ScrollText, to: "/hod/logs" },
   { label: "Settings", icon: Settings, to: "/hod/settings" },
@@ -65,12 +67,12 @@ function SidebarNav({
       <Wordmark />
 
       <nav className="mt-10 flex flex-1 flex-col gap-1">
-        {items.map(({ label, icon: Icon, to }) =>
+        {items.map(({ label, icon: Icon, to, exact }) =>
           to ? (
             <Link
               key={label}
               to={to}
-              activeOptions={{ exact: true }}
+              activeOptions={{ exact: exact !== false }}
               activeProps={{ className: "nav-active" }}
               inactiveProps={{ className: inactiveClass }}
               className={itemClass}
@@ -165,7 +167,7 @@ export function Sidebar() {
         </SheetContent>
       </Sheet>
 
-      <aside className="hidden h-screen w-60 shrink-0 flex-col bg-transparent p-5 md:flex">
+      <aside className="sidebar-raised my-3 ml-3 hidden h-[calc(100vh-1.5rem)] w-60 shrink-0 flex-col rounded-[1.75rem] p-5 md:flex">
         <SidebarNav user={user} />
       </aside>
     </>

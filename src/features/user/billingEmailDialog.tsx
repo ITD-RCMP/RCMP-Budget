@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { sendBillingEmail, type Billing } from "@backend/server-functions/billing-fns";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@unikl\.edu\.my$/i;
 
 function parseRecipients(value: string) {
   return value
@@ -37,7 +37,7 @@ export function BillingEmailDialog({
     if (!billing) return;
     setTo(billing.emailTo.join(", "));
     setMessage(
-      `Hi,\n\nPlease find the attached invoice ${billing.invoiceRef} from ${billing.supplier}.\n\nThank you.`,
+      `Hi and Greetings,\n\nPlease find the attached invoice ${billing.invoiceRef} from ${billing.supplier} received by IT department on ${billing.invoiceDate}. Please keep the attachment as reference for future payments.\n\nThank you.\n\nBest regards,\nIT Department\nUniversiti Kuala Lumpur RCMP`,
     );
   }, [billing]);
 
@@ -59,7 +59,7 @@ export function BillingEmailDialog({
     if (!billing) return;
     const recipients = parseRecipients(to);
     if (recipients.length === 0 || !recipients.every((email) => EMAIL_PATTERN.test(email))) {
-      toast.error("Enter a valid email address, then send again.");
+      toast.error("Use an email that ends with @unikl.edu.my, then send again.");
       return;
     }
     send.mutate({ billingId: billing.id, to: recipients, message: message.trim() });
@@ -67,11 +67,11 @@ export function BillingEmailDialog({
 
   return (
     <Dialog open={billing !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="glass-card flex max-h-[90vh] min-h-[40rem] w-full max-w-3xl flex-col overflow-y-auto rounded-[1.5rem] border-0 p-8 sm:rounded-[1.5rem]">
-        <DialogHeader>
+      <DialogContent className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none border-0 p-5 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:min-h-[40rem] sm:w-full sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[1.5rem] sm:p-8">
+        <DialogHeader className="pr-8">
           <DialogTitle className="font-display text-2xl">Send invoice</DialogTitle>
           <DialogDescription>
-            The scanned PDF is attached. Separate many emails with commas.
+            The scanned PDF is attached. Only @unikl.edu.my addresses can receive it. Separate many emails with commas.
           </DialogDescription>
         </DialogHeader>
         <label className="grid gap-1.5 text-xs text-foreground/50">
@@ -79,7 +79,7 @@ export function BillingEmailDialog({
           <Input
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            placeholder="Enter email valid email address"
+            placeholder="name@unikl.edu.my"
             className="h-11 rounded-full"
           />
         </label>
@@ -89,8 +89,8 @@ export function BillingEmailDialog({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={2000}
-            rows={12}
-            className="min-h-72 rounded-[1rem]"
+            rows={8}
+            className="min-h-48 rounded-[1rem] sm:min-h-72"
           />
           <span>Review this email before you send it.</span>
         </label>

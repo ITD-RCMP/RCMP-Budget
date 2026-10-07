@@ -25,10 +25,13 @@ import { Route as HodLogsRouteImport } from './routes/hod/logs'
 import { Route as HodCalendarRouteImport } from './routes/hod/calendar'
 import { Route as UserHistoryRouteRouteImport } from './routes/user/history/route'
 import { Route as UserBillingRouteRouteImport } from './routes/user/billing/route'
+import { Route as HodBillingRouteRouteImport } from './routes/hod/billing/route'
 import { Route as UserHistoryIndexRouteImport } from './routes/user/history/index'
 import { Route as UserBillingIndexRouteImport } from './routes/user/billing/index'
+import { Route as HodBillingIndexRouteImport } from './routes/hod/billing/index'
 import { Route as UserHistoryBudgetIdRouteImport } from './routes/user/history/$budgetId'
 import { Route as UserBillingBillingIdRouteImport } from './routes/user/billing/$billingId'
+import { Route as HodBillingBillingIdRouteImport } from './routes/hod/billing/$billingId'
 import { Route as AuthMicrosoftCallbackRouteImport } from './routes/auth/microsoft/callback'
 
 const LoginRoute = LoginRouteImport.update({
@@ -111,6 +114,11 @@ const UserBillingRouteRoute = UserBillingRouteRouteImport.update({
   path: '/billing',
   getParentRoute: () => UserRouteRoute,
 } as any)
+const HodBillingRouteRoute = HodBillingRouteRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => HodRouteRoute,
+} as any)
 const UserHistoryIndexRoute = UserHistoryIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -121,6 +129,11 @@ const UserBillingIndexRoute = UserBillingIndexRouteImport.update({
   path: '/',
   getParentRoute: () => UserBillingRouteRoute,
 } as any)
+const HodBillingIndexRoute = HodBillingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HodBillingRouteRoute,
+} as any)
 const UserHistoryBudgetIdRoute = UserHistoryBudgetIdRouteImport.update({
   id: '/$budgetId',
   path: '/$budgetId',
@@ -130,6 +143,11 @@ const UserBillingBillingIdRoute = UserBillingBillingIdRouteImport.update({
   id: '/$billingId',
   path: '/$billingId',
   getParentRoute: () => UserBillingRouteRoute,
+} as any)
+const HodBillingBillingIdRoute = HodBillingBillingIdRouteImport.update({
+  id: '/$billingId',
+  path: '/$billingId',
+  getParentRoute: () => HodBillingRouteRoute,
 } as any)
 const AuthMicrosoftCallbackRoute = AuthMicrosoftCallbackRouteImport.update({
   id: '/auth/microsoft/callback',
@@ -142,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/hod': typeof HodRouteRouteWithChildren
   '/user': typeof UserRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/hod/billing': typeof HodBillingRouteRouteWithChildren
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
   '/hod/calendar': typeof HodCalendarRoute
@@ -155,8 +174,10 @@ export interface FileRoutesByFullPath {
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
+  '/hod/billing/$billingId': typeof HodBillingBillingIdRoute
   '/user/billing/$billingId': typeof UserBillingBillingIdRoute
   '/user/history/$budgetId': typeof UserHistoryBudgetIdRoute
+  '/hod/billing/': typeof HodBillingIndexRoute
   '/user/billing/': typeof UserBillingIndexRoute
   '/user/history/': typeof UserHistoryIndexRoute
 }
@@ -174,8 +195,10 @@ export interface FileRoutesByTo {
   '/hod': typeof HodIndexRoute
   '/user': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
+  '/hod/billing/$billingId': typeof HodBillingBillingIdRoute
   '/user/billing/$billingId': typeof UserBillingBillingIdRoute
   '/user/history/$budgetId': typeof UserHistoryBudgetIdRoute
+  '/hod/billing': typeof HodBillingIndexRoute
   '/user/billing': typeof UserBillingIndexRoute
   '/user/history': typeof UserHistoryIndexRoute
 }
@@ -185,6 +208,7 @@ export interface FileRoutesById {
   '/hod': typeof HodRouteRouteWithChildren
   '/user': typeof UserRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/hod/billing': typeof HodBillingRouteRouteWithChildren
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
   '/hod/calendar': typeof HodCalendarRoute
@@ -198,8 +222,10 @@ export interface FileRoutesById {
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
+  '/hod/billing/$billingId': typeof HodBillingBillingIdRoute
   '/user/billing/$billingId': typeof UserBillingBillingIdRoute
   '/user/history/$budgetId': typeof UserHistoryBudgetIdRoute
+  '/hod/billing/': typeof HodBillingIndexRoute
   '/user/billing/': typeof UserBillingIndexRoute
   '/user/history/': typeof UserHistoryIndexRoute
 }
@@ -210,6 +236,7 @@ export interface FileRouteTypes {
     | '/hod'
     | '/user'
     | '/login'
+    | '/hod/billing'
     | '/user/billing'
     | '/user/history'
     | '/hod/calendar'
@@ -223,8 +250,10 @@ export interface FileRouteTypes {
     | '/hod/'
     | '/user/'
     | '/auth/microsoft/callback'
+    | '/hod/billing/$billingId'
     | '/user/billing/$billingId'
     | '/user/history/$budgetId'
+    | '/hod/billing/'
     | '/user/billing/'
     | '/user/history/'
   fileRoutesByTo: FileRoutesByTo
@@ -242,8 +271,10 @@ export interface FileRouteTypes {
     | '/hod'
     | '/user'
     | '/auth/microsoft/callback'
+    | '/hod/billing/$billingId'
     | '/user/billing/$billingId'
     | '/user/history/$budgetId'
+    | '/hod/billing'
     | '/user/billing'
     | '/user/history'
   id:
@@ -252,6 +283,7 @@ export interface FileRouteTypes {
     | '/hod'
     | '/user'
     | '/login'
+    | '/hod/billing'
     | '/user/billing'
     | '/user/history'
     | '/hod/calendar'
@@ -265,8 +297,10 @@ export interface FileRouteTypes {
     | '/hod/'
     | '/user/'
     | '/auth/microsoft/callback'
+    | '/hod/billing/$billingId'
     | '/user/billing/$billingId'
     | '/user/history/$budgetId'
+    | '/hod/billing/'
     | '/user/billing/'
     | '/user/history/'
   fileRoutesById: FileRoutesById
@@ -393,6 +427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserBillingRouteRouteImport
       parentRoute: typeof UserRouteRoute
     }
+    '/hod/billing': {
+      id: '/hod/billing'
+      path: '/billing'
+      fullPath: '/hod/billing'
+      preLoaderRoute: typeof HodBillingRouteRouteImport
+      parentRoute: typeof HodRouteRoute
+    }
     '/user/history/': {
       id: '/user/history/'
       path: '/'
@@ -406,6 +447,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/user/billing/'
       preLoaderRoute: typeof UserBillingIndexRouteImport
       parentRoute: typeof UserBillingRouteRoute
+    }
+    '/hod/billing/': {
+      id: '/hod/billing/'
+      path: '/'
+      fullPath: '/hod/billing/'
+      preLoaderRoute: typeof HodBillingIndexRouteImport
+      parentRoute: typeof HodBillingRouteRoute
     }
     '/user/history/$budgetId': {
       id: '/user/history/$budgetId'
@@ -421,6 +469,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserBillingBillingIdRouteImport
       parentRoute: typeof UserBillingRouteRoute
     }
+    '/hod/billing/$billingId': {
+      id: '/hod/billing/$billingId'
+      path: '/$billingId'
+      fullPath: '/hod/billing/$billingId'
+      preLoaderRoute: typeof HodBillingBillingIdRouteImport
+      parentRoute: typeof HodBillingRouteRoute
+    }
     '/auth/microsoft/callback': {
       id: '/auth/microsoft/callback'
       path: '/auth/microsoft/callback'
@@ -431,7 +486,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface HodBillingRouteRouteChildren {
+  HodBillingBillingIdRoute: typeof HodBillingBillingIdRoute
+  HodBillingIndexRoute: typeof HodBillingIndexRoute
+}
+
+const HodBillingRouteRouteChildren: HodBillingRouteRouteChildren = {
+  HodBillingBillingIdRoute: HodBillingBillingIdRoute,
+  HodBillingIndexRoute: HodBillingIndexRoute,
+}
+
+const HodBillingRouteRouteWithChildren = HodBillingRouteRoute._addFileChildren(
+  HodBillingRouteRouteChildren,
+)
+
 interface HodRouteRouteChildren {
+  HodBillingRouteRoute: typeof HodBillingRouteRouteWithChildren
   HodCalendarRoute: typeof HodCalendarRoute
   HodLogsRoute: typeof HodLogsRoute
   HodReportsRoute: typeof HodReportsRoute
@@ -440,6 +510,7 @@ interface HodRouteRouteChildren {
 }
 
 const HodRouteRouteChildren: HodRouteRouteChildren = {
+  HodBillingRouteRoute: HodBillingRouteRouteWithChildren,
   HodCalendarRoute: HodCalendarRoute,
   HodLogsRoute: HodLogsRoute,
   HodReportsRoute: HodReportsRoute,

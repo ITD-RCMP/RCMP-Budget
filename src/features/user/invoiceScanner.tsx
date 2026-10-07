@@ -131,6 +131,7 @@ export function InvoiceScanner({
 }) {
   const [supplier, setSupplier] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(todayIso);
+  const [totalInvoice, setTotalInvoice] = useState("");
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<SnapMode>("single");
   const [pages, setPages] = useState<Scan[]>([]);
@@ -147,6 +148,15 @@ export function InvoiceScanner({
   const [scan, setScan] = useState<Scan | null>(null);
   const [focus, setFocus] = useState<PaperFocus | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [portraitCamera, setPortraitCamera] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const sync = () => setPortraitCamera(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!open || scan || reviewing) return;
@@ -178,8 +188,16 @@ export function InvoiceScanner({
     const start = async () => {
       setStatus("starting");
       try {
+        const portrait = window.matchMedia("(max-width: 639px)").matches;
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: portrait
+            ? {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1080 },
+                height: { ideal: 1920 },
+                aspectRatio: { ideal: 9 / 16 },
+              }
+            : { facingMode: "environment" },
           audio: false,
         });
         scannerRef.current = await loadDocumentScanner();
@@ -215,6 +233,7 @@ export function InvoiceScanner({
     setFocus(null);
     setSupplier("");
     setInvoiceDate(todayIso());
+    setTotalInvoice("");
     setMode("single");
     setPages([]);
     setReviewing(false);
@@ -277,15 +296,25 @@ export function InvoiceScanner({
   const savePdf = useCallback(async () => {
     const scans = mode === "batch" ? pages : scan ? [scan] : [];
     if (scans.length === 0) return;
+    const amount = Number(totalInvoice);
     if (!supplier.trim() || !invoiceDate) {
       toast.error("Add the supplier and invoice date, then save.");
+      return;
+    }
+    if (!totalInvoice.trim() || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) {
+      toast.error("Enter the invoice amount in RM, then save.");
       return;
     }
     setSaving(true);
     try {
       const pdfBase64 = await scansToPdf(scans);
       const result = await createBilling({
-        data: { supplier: supplier.trim(), invoiceDate, pdfBase64 },
+        data: {
+          supplier: supplier.trim(),
+          invoiceDate,
+          totalInvoice: Math.round(amount * 100) / 100,
+          pdfBase64,
+        },
       });
       toast.success(`Bill ${result.invoiceRef} saved.`);
       onSaved();
@@ -299,12 +328,12 @@ export function InvoiceScanner({
     } finally {
       setSaving(false);
     }
-  }, [mode, pages, scan, supplier, invoiceDate, onSaved, onOpenChange]);
+  }, [mode, pages, scan, supplier, invoiceDate, totalInvoice, onSaved, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card max-w-2xl rounded-[1.5rem] border-0 p-6 sm:rounded-[1.5rem]">
-        <DialogHeader>
+      <DialogContent className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-4 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:overflow-y-auto sm:rounded-[1.5rem] sm:p-6">
+        <DialogHeader className="pr-8">
           <DialogTitle className="font-display text-2xl">Scan invoice</DialogTitle>
           <DialogDescription>
             {mode === "batch"
@@ -339,13 +368,13 @@ export function InvoiceScanner({
 
         <div
           className={cn(
-            "relative overflow-hidden rounded-[1.25rem]",
+            "relative w-full overflow-hidden rounded-[1.25rem] max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:rounded-none",
             reviewing
               ? "bg-ivory/70 p-3"
-              : "flex max-h-[60vh] items-center justify-center bg-foreground/90",
+              : "flex min-h-0 flex-1 items-center justify-center bg-foreground/90 sm:max-h-[60vh] sm:flex-none",
           )}
           style={
-            reviewing
+            reviewing || portraitCamera
               ? undefined
               : { aspectRatio: scan ? `${scan.width} / ${scan.height}` : "4 / 3" }
           }
@@ -382,7 +411,7 @@ export function InvoiceScanner({
               ref={displayRef}
               className={
                 status === "live" || status === "focusing"
-                  ? "h-full w-full object-contain transition-transform duration-300 ease-out"
+                  ? "h-full w-full object-cover transition-transform duration-300 ease-out sm:object-contain"
                   : "hidden"
               }
               style={
@@ -442,10 +471,21 @@ export function InvoiceScanner({
               aria-label="Invoice date"
               className="h-11 rounded-full"
             />
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              value={totalInvoice}
+              onChange={(e) => setTotalInvoice(e.target.value)}
+              placeholder="Invoice (RM)"
+              aria-label="Invoice (RM)"
+              className="h-11 rounded-full sm:col-span-2"
+            />
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 max-sm:[&_button]:w-full">
           {status === "error" && (
             <button
               type="button"
