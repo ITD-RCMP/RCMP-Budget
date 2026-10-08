@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Check, FileText, Loader2, RotateCcw, Save, Upload, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Camera, Check, Eye, FileText, Loader2, RotateCcw, Save, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ type ScanStatus = "starting" | "live" | "preview" | "error";
 type SnapMode = "single" | "batch";
 
 type Scan = { url: string; width: number; height: number };
+
+type PdfView = { kind: "pages"; pages: Scan[] } | { kind: "file"; url: string };
 
 const MAX_BATCH_PAGES = 20;
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -110,11 +113,18 @@ async function scansToPdf(scans: Scan[]) {
   return pdf.output("datauristring").split(",")[1] ?? "";
 }
 
-const VIEW_RATIO = 3 / 4;
-const GUIDE_INSET = 0.08;
+function pdfBlobUrl(base64: string) {
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+}
+
 const A4_RATIO = 210 / 297;
+const VIEW_RATIO = A4_RATIO;
+const GUIDE_INSET = 0.08;
 const GUIDE_WIDTH = 1 - GUIDE_INSET * 2;
 const GUIDE_HEIGHT = (GUIDE_WIDTH * VIEW_RATIO) / A4_RATIO;
+const a4Frame =
+  "relative mx-auto flex aspect-[210/297] h-[min(36vh,16rem)] w-auto max-w-full shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-foreground/90 sm:h-[min(60vh,32rem)]";
 
 function viewRect(frameWidth: number, frameHeight: number) {
   const width = Math.min(frameWidth, frameHeight * VIEW_RATIO);
@@ -158,6 +168,8 @@ export function InvoiceScanner({
   const [scan, setScan] = useState<Scan | null>(null);
   const [uploadedPdf, setUploadedPdf] = useState<string | null>(null);
   const [uploadedName, setUploadedName] = useState("");
+  const [pdfView, setPdfView] = useState<PdfView | null>(null);
+  const [openingPdf, setOpeningPdf] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -221,6 +233,10 @@ export function InvoiceScanner({
     setScan(null);
     setUploadedPdf(null);
     setUploadedName("");
+    setPdfView((current) => {
+      if (current?.kind === "file") URL.revokeObjectURL(current.url);
+      return null;
+    });
     setSupplier("");
     setInvoiceDate(todayIso());
     setTotalInvoice("");
@@ -294,6 +310,37 @@ export function InvoiceScanner({
     }
   }, []);
 
+  const viewPdf = useCallback(async () => {
+    if (uploadedPdf) {
+      setOpeningPdf(true);
+      try {
+        const url = pdfBlobUrl(uploadedPdf);
+        setPdfView((current) => {
+          if (current?.kind === "file") URL.revokeObjectURL(current.url);
+          return { kind: "file", url };
+        });
+      } catch {
+        toast.error("Could not open the PDF. Try again.");
+      } finally {
+        setOpeningPdf(false);
+      }
+      return;
+    }
+    const scans = mode === "batch" ? pages : scan ? [scan] : [];
+    if (scans.length === 0) return;
+    setPdfView((current) => {
+      if (current?.kind === "file") URL.revokeObjectURL(current.url);
+      return { kind: "pages", pages: scans };
+    });
+  }, [mode, pages, scan, uploadedPdf]);
+
+  const closePdf = useCallback(() => {
+    setPdfView((current) => {
+      if (current?.kind === "file") URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }, []);
+
   const savePdf = useCallback(async () => {
     const scans = mode === "batch" ? pages : scan ? [scan] : [];
     if (!uploadedPdf && scans.length === 0) return;
@@ -332,20 +379,48 @@ export function InvoiceScanner({
   }, [mode, pages, scan, uploadedPdf, supplier, invoiceDate, totalInvoice, onSaved, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[1.5rem]">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && pdfView) {
+          closePdf();
+          return;
+        }
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[1.5rem]"
+        onPointerDownOutside={(event) => {
+          if (pdfView) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (pdfView) event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (pdfView) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (!pdfView) return;
+          event.preventDefault();
+          closePdf();
+        }}
+      >
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
         <DialogHeader className="pr-8">
           <DialogTitle className="font-display text-2xl">Scan invoice</DialogTitle>
           <DialogDescription>
-            {uploadedPdf
-              ? "Add the supplier, date, and amount, then save this PDF."
-              : mode === "batch"
-                ? "Snap each page, then finish to save them as one bill."
-                : "Snap the invoice, or upload a PDF from your device."}
+            {status === "preview" || reviewing
+              ? "Add the supplier, date, and amount, then save."
+              : uploadedPdf
+                ? "Add the supplier, date, and amount, then save this PDF."
+                : mode === "batch"
+                  ? "Snap each page, then finish to save them as one bill."
+                  : "Snap the invoice, or upload a PDF from your device."}
           </DialogDescription>
         </DialogHeader>
 
+        {status !== "preview" && (
         <div className="grid grid-cols-2 rounded-full bg-ivory p-1" role="group" aria-label="Snap mode">
           {(
             [
@@ -369,17 +444,16 @@ export function InvoiceScanner({
             </button>
           ))}
         </div>
+        )}
 
+        {status !== "preview" && (
         <div
           className={cn(
-            "relative overflow-hidden rounded-[1.25rem]",
             uploadedName
-              ? "flex h-36 w-full items-center justify-center bg-ivory px-6"
+              ? "relative flex h-36 w-full items-center justify-center overflow-hidden rounded-[1.25rem] bg-ivory px-6"
               : reviewing
-                ? "w-full bg-ivory/70 p-3"
-                : scan
-                  ? "mx-auto flex h-40 w-full shrink-0 items-center justify-center bg-foreground/90 sm:aspect-[3/4] sm:h-[min(60vh,32rem)]"
-                  : "mx-auto flex h-[min(36vh,16rem)] w-full shrink-0 items-center justify-center bg-foreground/90 sm:aspect-[3/4] sm:h-[min(60vh,32rem)]",
+                ? "relative w-full overflow-hidden rounded-[1.25rem] bg-ivory/70 p-3"
+                : a4Frame,
           )}
         >
           <video ref={videoRef} className="hidden" playsInline muted />
@@ -390,7 +464,7 @@ export function InvoiceScanner({
                   <img
                     src={page.url}
                     alt={`Page ${index + 1}`}
-                    className="aspect-[3/4] w-full rounded-xl object-cover"
+                    className="aspect-[210/297] w-full rounded-xl object-cover"
                   />
                   <button
                     type="button"
@@ -419,7 +493,7 @@ export function InvoiceScanner({
           ) : (
             <canvas
               ref={displayRef}
-              className={status === "live" ? "h-full w-full" : "hidden"}
+              className={status === "live" ? "h-full w-full object-contain" : "hidden"}
             />
           )}
           {status === "live" && !scan && !uploadedName && !reviewing && (
@@ -455,6 +529,7 @@ export function InvoiceScanner({
             </p>
           )}
         </div>
+        )}
 
         {mode === "batch" && pages.length > 0 && !reviewing && (
           <div className="flex gap-2 overflow-x-auto">
@@ -463,7 +538,7 @@ export function InvoiceScanner({
                 <img
                   src={page.url}
                   alt={`Page ${index + 1}`}
-                  className="h-16 w-12 rounded-lg object-cover"
+                  className="aspect-[210/297] h-16 w-auto rounded-lg object-cover"
                 />
                 <span className="absolute right-1 bottom-1 rounded-full bg-foreground/80 px-1.5 text-[10px] text-background">
                   {index + 1}
@@ -570,6 +645,19 @@ export function InvoiceScanner({
           )}
           {(status === "preview" || reviewing) && (
             <>
+              <button
+                type="button"
+                onClick={() => void viewPdf()}
+                disabled={openingPdf}
+                className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-3 text-sm text-foreground/70 transition hover:bg-ivory disabled:opacity-60"
+              >
+                {openingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                View PDF
+              </button>
               {status === "preview" && uploadedPdf && (
                 <>
                   <button
@@ -617,6 +705,49 @@ export function InvoiceScanner({
           )}
         </div>
         </div>
+        {pdfView &&
+          createPortal(
+            <div
+              data-invoice-pdf
+              className="pointer-events-auto fixed inset-0 z-[80] flex flex-col bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="font-display text-xl">Invoice PDF</p>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closePdf();
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-4 py-2 text-sm text-foreground/70 transition hover:bg-ivory"
+                >
+                  <X className="h-4 w-4" />
+                  Close
+                </button>
+              </div>
+              {pdfView.kind === "file" ? (
+                <iframe
+                  title="Invoice PDF"
+                  src={pdfView.url}
+                  className="min-h-0 w-full flex-1 rounded-xl border border-foreground/10 bg-foreground/90"
+                />
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto">
+                  {pdfView.pages.map((page, index) => (
+                    <img
+                      key={`${page.url}-${index}`}
+                      src={page.url}
+                      alt={`Invoice page ${index + 1}`}
+                      className="aspect-[210/297] w-full max-w-md rounded-xl bg-foreground/90 object-contain"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>,
+            document.body,
+          )}
       </DialogContent>
     </Dialog>
   );
