@@ -824,7 +824,7 @@ export function HodDashboard() {
           </div>
 
           <div className="min-w-0 rounded-[1.75rem] glass-card p-4 sm:p-5 md:p-6">
-            <div className="-mx-1 flex gap-4 overflow-x-auto border-b border-foreground/10 px-1">
+            <div className="-mx-1 flex flex-wrap gap-x-4 gap-y-1 border-b border-foreground/10 px-1 sm:gap-x-5">
               {tabs.map((item) => (
                 <button
                   key={item.id}

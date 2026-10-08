@@ -6,7 +6,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
       <img
         src="/unikl-official.png"
         alt="Budget Tracker — UniKL Royal College Of Medicine Perak"
-        className="h-12 w-auto"
+        className="h-9 w-auto sm:h-12"
       />
     </Link>
   );
@@ -14,8 +14,8 @@ export function Wordmark({ className = "" }: { className?: string }) {
 
 export function Nav() {
   return (
-    <header className="sticky top-0 z-40 w-full">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+    <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-6">
         <Wordmark />
         <nav className="hidden items-center gap-8 text-sm text-foreground/80 md:flex">
           <a href="#features" className="hover:text-foreground">

@@ -4,8 +4,8 @@ import { Underline } from "./Underline";
 
 export function Hero() {
   return (
-    <section className="mx-auto max-w-7xl px-6 pt-16 pb-10 text-center md:pt-28 md:pb-16">
-      <h1 className="mx-auto max-w-5xl font-display text-6xl leading-[1.02] tracking-tight text-foreground md:text-8xl">
+    <section className="mx-auto max-w-7xl px-4 pt-12 pb-10 text-center sm:px-6 sm:pt-16 md:pt-28 md:pb-16">
+      <h1 className="mx-auto max-w-5xl font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-6xl md:text-8xl">
         Track every ringgit,
         <br />
         approve in

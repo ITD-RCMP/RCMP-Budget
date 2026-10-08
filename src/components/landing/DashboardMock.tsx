@@ -2,8 +2,8 @@ import { CheckCircle2, Clock, FileText, LayoutGrid, Wallet } from "lucide-react"
 
 export function DashboardMock() {
   return (
-    <section className="mx-auto max-w-7xl px-6 pb-24">
-      <div className="rounded-[2.5rem] bg-ivory p-6 shadow-card md:p-10">
+    <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24">
+      <div className="rounded-[2rem] bg-ivory p-4 shadow-card sm:rounded-[2.5rem] sm:p-6 md:p-10">
         <div className="grid gap-6 md:grid-cols-[220px_1fr]">
           {/* Sidebar */}
           <aside className="hidden rounded-2xl bg-background/60 p-5 md:block">
@@ -33,7 +33,7 @@ export function DashboardMock() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm text-foreground/60">Q3 Operating Budget</p>
-                <h3 className="font-display text-4xl">RM 1.24M remaining</h3>
+                <h3 className="font-display text-3xl sm:text-4xl">RM 1.24M remaining</h3>
               </div>
               <div className="rounded-full bg-lime px-4 py-1.5 text-xs font-medium text-lime-foreground">
                 On track
@@ -81,13 +81,13 @@ export function DashboardMock() {
                     Icon: FileText,
                   },
                 ].map(({ title, amount, status, tone, Icon }) => (
-                  <li key={title} className="flex items-center justify-between py-3">
-                    <div>
+                  <li key={title} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">{title}</p>
                       <p className="text-xs text-foreground/60">{amount}</p>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${tone}`}
+                      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs ${tone}`}
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {status}

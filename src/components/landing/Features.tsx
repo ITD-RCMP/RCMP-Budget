@@ -25,10 +25,10 @@ const features = [
 
 export function Features() {
   return (
-    <section id="features" className="mx-auto max-w-7xl px-6 pb-24">
-      <div className="mb-14 max-w-2xl">
+    <section id="features" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-24">
+      <div className="mb-10 max-w-2xl sm:mb-14">
         <p className="text-sm uppercase tracking-widest text-foreground/50">Features</p>
-        <h2 className="mt-3 font-display text-5xl leading-tight md:text-6xl">
+        <h2 className="mt-3 font-display text-4xl leading-tight sm:text-5xl md:text-6xl">
           Everything a department needs, nothing it doesn't.
         </h2>
       </div>
@@ -36,7 +36,7 @@ export function Features() {
         {features.map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="group rounded-3xl border border-border bg-ivory p-8 transition hover:bg-lime/40"
+            className="group rounded-3xl border border-border bg-ivory p-6 transition hover:bg-lime/40 sm:p-8"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background">
               <Icon className="h-5 w-5" />
