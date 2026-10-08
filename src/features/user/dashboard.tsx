@@ -20,10 +20,12 @@ import {
   XCircle,
   FileText,
   History,
+  Camera,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "./sidebar";
+import { InvoiceScanner } from "./invoiceScanner";
 import { cn } from "@/lib/utils";
 import { useAutoHideReveal } from "@/lib/use-auto-hide";
 import { Input } from "@/components/ui/input";
@@ -213,6 +215,7 @@ export function UserDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [dateFilter, setDateFilter] = useState<DateFilter>("month");
   const [page, setPage] = useState(1);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const moneyRevealed = revealed.money ?? false;
 
   useEffect(() => {
@@ -373,26 +376,27 @@ export function UserDashboard() {
             </h1>
             <p className="mt-1 text-sm text-foreground/55">{formatToday()}</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-medium text-lime-foreground transition hover:brightness-95 sm:w-auto"
-              >
-                <Plus className="h-4 w-4" />
-                Make Request
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                disabled={!budgetFormEnabled}
-                onSelect={openBudgetForm}
-              >
-                Yearly Budget
-                {!budgetFormEnabled ? " (Closed)" : ""}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex shrink-0 items-center justify-end gap-2 self-end">
+            <button
+              type="button"
+              aria-label={budgetFormEnabled ? "Request budget" : "Request budget, closed"}
+              title={budgetFormEnabled ? "Request budget" : "Yearly budget is closed"}
+              disabled={!budgetFormEnabled}
+              onClick={openBudgetForm}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-lime text-lime-foreground transition hover:brightness-95 disabled:opacity-60"
+            >
+              <Wallet className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Scan invoice"
+              title="Scan invoice"
+              onClick={() => setScannerOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-lime text-lime-foreground transition hover:brightness-95"
+            >
+              <Camera className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
@@ -927,6 +931,11 @@ export function UserDashboard() {
           </div>
         </div>
       </main>
+      <InvoiceScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onSaved={() => setScannerOpen(false)}
+      />
     </div>
   );
 }

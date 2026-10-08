@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Check, Loader2, RotateCcw, Save, X } from "lucide-react";
+import { Camera, Check, FileText, Loader2, RotateCcw, Save, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import type Jscanify from "jscanify/client";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { createBilling } from "@backend/server-functions/billing-fns";
@@ -12,25 +11,39 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  focusOnPaper,
-  loadDocumentScanner,
-  paperPixelSize,
-  readPaperCorners,
-  type PaperCorners,
-} from "@/lib/document-scanner";
 
-type ScanStatus = "starting" | "live" | "focusing" | "preview" | "error";
+type ScanStatus = "starting" | "live" | "preview" | "error";
 
 type SnapMode = "single" | "batch";
 
 type Scan = { url: string; width: number; height: number };
 
-type PaperFocus = { originX: number; originY: number; scale: number };
-
-const HIGHLIGHT_INTERVAL_MS = 120;
-const FOCUS_MS = 320;
 const MAX_BATCH_PAGES = 20;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("unreadable"));
+        return;
+      }
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(new Error("unreadable"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isPdf(base64: string) {
+  try {
+    return atob(base64.slice(0, 8)).startsWith("%PDF");
+  } catch {
+    return false;
+  }
+}
 
 function cameraErrorMessage(error: unknown) {
   const name = error instanceof DOMException ? error.name : "";
@@ -42,8 +55,6 @@ function cameraErrorMessage(error: unknown) {
     return "Your camera is busy. Close other apps using it and try again.";
   if (!window.isSecureContext)
     return "The camera only works on a secure link. Open this page with https:// and try again.";
-  if (error instanceof Error && error.message === "opencv-load-failed")
-    return "The scanner could not load. Check your internet and try again.";
   return "Could not start the camera. Please try again.";
 }
 
@@ -111,44 +122,15 @@ function viewRect(frameWidth: number, frameHeight: number) {
   return { x: (frameWidth - width) / 2, y: (frameHeight - height) / 2, width, height };
 }
 
-function focusInView(focus: PaperFocus, frameWidth: number, frameHeight: number): PaperFocus {
-  const view = viewRect(frameWidth, frameHeight);
-  return {
-    scale: focus.scale,
-    originX: (((focus.originX / 100) * frameWidth - view.x) / view.width) * 100,
-    originY: (((focus.originY / 100) * frameHeight - view.y) / view.height) * 100,
-  };
-}
-
-function guideRect(frameWidth: number, frameHeight: number) {
-  const view = viewRect(frameWidth, frameHeight);
-  const width = view.width * GUIDE_WIDTH;
-  const height = view.height * GUIDE_HEIGHT;
-  return {
-    x: (frameWidth - width) / 2,
-    y: (frameHeight - height) / 2,
-    width,
-    height,
-  };
-}
-
-function cropGuide(frame: HTMLCanvasElement) {
-  const rect = guideRect(frame.width, frame.height);
+function snapshotView(frame: HTMLCanvasElement) {
+  const view = viewRect(frame.width, frame.height);
   const page = document.createElement("canvas");
-  page.width = Math.round(rect.width);
-  page.height = Math.round(rect.height);
+  page.width = Math.round(view.width);
+  page.height = Math.round(view.height);
   page
     .getContext("2d")
-    ?.drawImage(frame, rect.x, rect.y, rect.width, rect.height, 0, 0, page.width, page.height);
+    ?.drawImage(frame, view.x, view.y, view.width, view.height, 0, 0, page.width, page.height);
   return page;
-}
-
-function copyFrame(frame: HTMLCanvasElement) {
-  const copy = document.createElement("canvas");
-  copy.width = frame.width;
-  copy.height = frame.height;
-  copy.getContext("2d")?.drawImage(frame, 0, 0);
-  return copy;
 }
 
 export function InvoiceScanner({
@@ -170,50 +152,30 @@ export function InvoiceScanner({
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLCanvasElement | null>(null);
   const displayRef = useRef<HTMLCanvasElement>(null);
-  const scannerRef = useRef<Jscanify | null>(null);
-  const cornersRef = useRef<PaperCorners | null>(null);
-  const holdRef = useRef(false);
-  const focusTimer = useRef(0);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<ScanStatus>("starting");
   const [errorMessage, setErrorMessage] = useState("");
   const [scan, setScan] = useState<Scan | null>(null);
-  const [focus, setFocus] = useState<PaperFocus | null>(null);
+  const [uploadedPdf, setUploadedPdf] = useState<string | null>(null);
+  const [uploadedName, setUploadedName] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const [portraitCamera, setPortraitCamera] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 639px)");
-    const sync = () => setPortraitCamera(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-
-  useEffect(() => {
-    if (!open || scan || reviewing) return;
+    if (!open || scan || reviewing || uploadedPdf) return;
     let cancelled = false;
     let stream: MediaStream | null = null;
     let frameId = 0;
-    let lastDraw = 0;
 
-    const highlightLoop = (time: number) => {
+    const paintLoop = () => {
       const video = videoRef.current;
       const display = displayRef.current;
       const frame = frameRef.current;
-      const scanner = scannerRef.current;
-      if (cancelled || !video || !display || !frame || !scanner) return;
-      if (holdRef.current) {
-        frameId = requestAnimationFrame(highlightLoop);
-        return;
-      }
-      if (video.videoWidth && time - lastDraw >= HIGHLIGHT_INTERVAL_MS) {
-        lastDraw = time;
+      if (cancelled || !video || !display || !frame) return;
+      if (video.videoWidth) {
         drawFrame(video, frame);
-        const corners = readPaperCorners(scanner, frame);
-        cornersRef.current = corners;
         paintPreview(frame, display);
       }
-      frameId = requestAnimationFrame(highlightLoop);
+      frameId = requestAnimationFrame(paintLoop);
     };
 
     const start = async () => {
@@ -231,15 +193,13 @@ export function InvoiceScanner({
             : { facingMode: "environment" },
           audio: false,
         });
-        scannerRef.current = await loadDocumentScanner();
         const video = videoRef.current;
         if (cancelled || !video) return;
-        holdRef.current = false;
         frameRef.current ??= document.createElement("canvas");
         video.srcObject = stream;
         await video.play();
         setStatus("live");
-        frameId = requestAnimationFrame(highlightLoop);
+        frameId = requestAnimationFrame(paintLoop);
       } catch (error) {
         if (cancelled) return;
         setErrorMessage(cameraErrorMessage(error));
@@ -254,14 +214,13 @@ export function InvoiceScanner({
       cancelAnimationFrame(frameId);
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [open, scan, reviewing, attempt]);
+  }, [open, scan, reviewing, uploadedPdf, attempt]);
 
   useEffect(() => {
     if (open) return;
-    window.clearTimeout(focusTimer.current);
-    holdRef.current = false;
     setScan(null);
-    setFocus(null);
+    setUploadedPdf(null);
+    setUploadedName("");
     setSupplier("");
     setInvoiceDate(todayIso());
     setTotalInvoice("");
@@ -275,57 +234,25 @@ export function InvoiceScanner({
       toast.error("This batch is full. Save these pages, then start another bill.");
       return;
     }
+    const video = videoRef.current;
     const frame = frameRef.current;
-    const scanner = scannerRef.current;
-    const corners = cornersRef.current;
-    if (!frame?.width || !scanner) {
+    if (!video?.videoWidth || !frame) {
       toast.error("The camera is not ready yet. Wait a moment and try again.");
       return;
     }
-    const snapshot = copyFrame(frame);
-    holdRef.current = true;
-    setFocus(
-      corners
-        ? focusInView(
-            focusOnPaper(corners, snapshot.width, snapshot.height),
-            snapshot.width,
-            snapshot.height,
-          )
-        : { originX: 50, originY: 50, scale: 1 / GUIDE_WIDTH },
-    );
-    setStatus("focusing");
-    window.clearTimeout(focusTimer.current);
-    focusTimer.current = window.setTimeout(() => {
-      const size = corners ? paperPixelSize(corners) : null;
-      const page =
-        corners && size
-          ? scanner.extractPaper(snapshot, size.width, size.height, corners)
-          : cropGuide(snapshot);
-      if (!page) {
-        holdRef.current = false;
-        setFocus(null);
-        setStatus("live");
-        toast.error(
-          "No page found. Place the invoice on a plain surface and try again.",
-        );
-        return;
-      }
-      const next = {
-        url: page.toDataURL("image/jpeg", 0.92),
-        width: page.width,
-        height: page.height,
-      };
-      if (mode === "batch") {
-        setPages((current) => [...current, next]);
-        holdRef.current = false;
-        setFocus(null);
-        setStatus("live");
-        return;
-      }
-      setScan(next);
-      setFocus(null);
-      setStatus("preview");
-    }, FOCUS_MS);
+    drawFrame(video, frame);
+    const page = snapshotView(frame);
+    const next = {
+      url: page.toDataURL("image/jpeg", 0.92),
+      width: page.width,
+      height: page.height,
+    };
+    if (mode === "batch") {
+      setPages((current) => [...current, next]);
+      return;
+    }
+    setScan(next);
+    setStatus("preview");
   }, [mode, pages.length]);
 
   const removePage = useCallback((index: number) => {
@@ -333,9 +260,43 @@ export function InvoiceScanner({
     setReviewing((current) => current && pages.length > 1);
   }, [pages.length]);
 
+  const clearUpload = useCallback(() => {
+    setUploadedPdf(null);
+    setUploadedName("");
+    if (fileRef.current) fileRef.current.value = "";
+  }, []);
+
+  const onUpload = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    const namedPdf = file.name.toLowerCase().endsWith(".pdf");
+    if (file.type !== "application/pdf" && !namedPdf) {
+      toast.error("This file is not a PDF. Choose a PDF and try again.");
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      toast.error("This file is too large. Choose a PDF under 10 MB.");
+      return;
+    }
+    try {
+      const base64 = await fileToBase64(file);
+      if (!isPdf(base64)) {
+        toast.error("This file is not a PDF. Choose a PDF and try again.");
+        return;
+      }
+      setScan(null);
+      setPages([]);
+      setReviewing(false);
+      setUploadedPdf(base64);
+      setUploadedName(file.name);
+      setStatus("preview");
+    } catch {
+      toast.error("Could not read this file. Choose the PDF again.");
+    }
+  }, []);
+
   const savePdf = useCallback(async () => {
     const scans = mode === "batch" ? pages : scan ? [scan] : [];
-    if (scans.length === 0) return;
+    if (!uploadedPdf && scans.length === 0) return;
     const amount = Number(totalInvoice);
     if (!supplier.trim() || !invoiceDate) {
       toast.error("Add the supplier and invoice date, then save.");
@@ -347,7 +308,7 @@ export function InvoiceScanner({
     }
     setSaving(true);
     try {
-      const pdfBase64 = await scansToPdf(scans);
+      const pdfBase64 = uploadedPdf ?? (await scansToPdf(scans));
       const result = await createBilling({
         data: {
           supplier: supplier.trim(),
@@ -368,17 +329,20 @@ export function InvoiceScanner({
     } finally {
       setSaving(false);
     }
-  }, [mode, pages, scan, supplier, invoiceDate, totalInvoice, onSaved, onOpenChange]);
+  }, [mode, pages, scan, uploadedPdf, supplier, invoiceDate, totalInvoice, onSaved, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-4 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:overflow-y-auto sm:rounded-[1.5rem] sm:p-6">
+      <DialogContent className="glass-card left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[1.5rem]">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">
         <DialogHeader className="pr-8">
           <DialogTitle className="font-display text-2xl">Scan invoice</DialogTitle>
           <DialogDescription>
-            {mode === "batch"
-              ? "Snap each page, then finish to save them as one bill."
-              : "Fit the invoice inside the frame, then snap."}
+            {uploadedPdf
+              ? "Add the supplier, date, and amount, then save this PDF."
+              : mode === "batch"
+                ? "Snap each page, then finish to save them as one bill."
+                : "Snap the invoice, or upload a PDF from your device."}
           </DialogDescription>
         </DialogHeader>
 
@@ -392,7 +356,7 @@ export function InvoiceScanner({
             <button
               key={option}
               type="button"
-              disabled={Boolean(scan) || pages.length > 0 || reviewing || saving}
+              disabled={Boolean(scan) || Boolean(uploadedPdf) || pages.length > 0 || reviewing || saving}
               onClick={() => setMode(option)}
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-60",
@@ -409,9 +373,13 @@ export function InvoiceScanner({
         <div
           className={cn(
             "relative overflow-hidden rounded-[1.25rem]",
-            reviewing
-              ? "w-full bg-ivory/70 p-3"
-              : "mx-auto flex aspect-[3/4] h-[min(60vh,32rem)] max-w-full shrink-0 items-center justify-center bg-foreground/90",
+            uploadedName
+              ? "flex h-36 w-full items-center justify-center bg-ivory px-6"
+              : reviewing
+                ? "w-full bg-ivory/70 p-3"
+                : scan
+                  ? "mx-auto flex h-40 w-full shrink-0 items-center justify-center bg-foreground/90 sm:aspect-[3/4] sm:h-[min(60vh,32rem)]"
+                  : "mx-auto flex h-[min(36vh,16rem)] w-full shrink-0 items-center justify-center bg-foreground/90 sm:aspect-[3/4] sm:h-[min(60vh,32rem)]",
           )}
         >
           <video ref={videoRef} className="hidden" playsInline muted />
@@ -435,6 +403,13 @@ export function InvoiceScanner({
                 </li>
               ))}
             </ul>
+          ) : uploadedName ? (
+            <div className="flex max-w-full items-center gap-3 text-foreground">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-lime text-lime-foreground">
+                <FileText className="h-5 w-5" />
+              </span>
+              <p className="min-w-0 truncate text-sm font-medium">{uploadedName}</p>
+            </div>
           ) : scan ? (
             <img
               src={scan.url}
@@ -444,22 +419,10 @@ export function InvoiceScanner({
           ) : (
             <canvas
               ref={displayRef}
-              className={
-                status === "live" || status === "focusing"
-                  ? "h-full w-full transition-transform duration-300 ease-out"
-                  : "hidden"
-              }
-              style={
-                focus
-                  ? {
-                      transform: `scale(${focus.scale})`,
-                      transformOrigin: `${focus.originX}% ${focus.originY}%`,
-                    }
-                  : undefined
-              }
+              className={status === "live" ? "h-full w-full" : "hidden"}
             />
           )}
-          {status === "live" && !scan && !reviewing && (
+          {status === "live" && !scan && !uploadedName && !reviewing && (
             <div
               aria-hidden
               className="pointer-events-none absolute rounded-xl border border-dashed border-white/50"
@@ -510,6 +473,17 @@ export function InvoiceScanner({
           </div>
         )}
 
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="hidden"
+          onChange={(event) => {
+            void onUpload(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+
         {(status === "preview" || reviewing) && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
@@ -541,7 +515,7 @@ export function InvoiceScanner({
           </div>
         )}
 
-        <div className="flex shrink-0 flex-wrap justify-end gap-2 max-sm:[&_button]:w-full">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 pb-1 max-sm:[&_button]:w-full">
           {status === "error" && (
             <button
               type="button"
@@ -552,16 +526,26 @@ export function InvoiceScanner({
               Try again
             </button>
           )}
-          {status === "live" && !reviewing && (
+          {(status === "starting" || status === "live" || status === "error") && !reviewing && !uploadedPdf && (
             <>
               <button
                 type="button"
-                onClick={capture}
-                className="inline-flex items-center gap-2 rounded-full bg-lime px-6 py-3 text-sm font-medium text-lime-foreground transition hover:brightness-95"
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-3 text-sm text-foreground/70 transition hover:bg-ivory"
               >
-                <Camera className="h-4 w-4" />
-                {mode === "batch" ? `Snap page${pages.length ? ` ${pages.length + 1}` : ""}` : "Capture"}
+                <Upload className="h-4 w-4" />
+                Upload PDF
               </button>
+              {status === "live" && (
+                <button
+                  type="button"
+                  onClick={capture}
+                  className="inline-flex items-center gap-2 rounded-full bg-lime px-6 py-3 text-sm font-medium text-lime-foreground transition hover:brightness-95"
+                >
+                  <Camera className="h-4 w-4" />
+                  {mode === "batch" ? `Snap page${pages.length ? ` ${pages.length + 1}` : ""}` : "Capture"}
+                </button>
+              )}
               {mode === "batch" && pages.length > 0 && (
                 <button
                   type="button"
@@ -586,14 +570,30 @@ export function InvoiceScanner({
           )}
           {(status === "preview" || reviewing) && (
             <>
-              {status === "preview" && (
+              {status === "preview" && uploadedPdf && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-3 text-sm text-foreground/70 transition hover:bg-ivory"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Choose another PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearUpload}
+                    className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-3 text-sm text-foreground/70 transition hover:bg-ivory"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Use camera
+                  </button>
+                </>
+              )}
+              {status === "preview" && !uploadedPdf && (
                 <button
                   type="button"
-                  onClick={() => {
-                    holdRef.current = false;
-                    setFocus(null);
-                    setScan(null);
-                  }}
+                  onClick={() => setScan(null)}
                   className="inline-flex items-center gap-2 rounded-full border border-foreground/15 px-5 py-3 text-sm text-foreground/70 transition hover:bg-ivory"
                 >
                   <RotateCcw className="h-4 w-4" />
@@ -615,6 +615,7 @@ export function InvoiceScanner({
               </button>
             </>
           )}
+        </div>
         </div>
       </DialogContent>
     </Dialog>
