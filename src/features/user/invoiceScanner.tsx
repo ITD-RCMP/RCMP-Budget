@@ -53,26 +53,13 @@ function drawFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement) {
   canvas.getContext("2d")?.drawImage(video, 0, 0);
 }
 
-function paintPreview(
-  frame: HTMLCanvasElement,
-  display: HTMLCanvasElement,
-  corners: PaperCorners | null,
-) {
-  display.width = frame.width;
-  display.height = frame.height;
-  const ctx = display.getContext("2d");
-  if (!ctx) return;
-  ctx.drawImage(frame, 0, 0);
-  if (!corners) return;
-  ctx.strokeStyle = "#5fb98a";
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(corners.topLeftCorner.x, corners.topLeftCorner.y);
-  ctx.lineTo(corners.topRightCorner.x, corners.topRightCorner.y);
-  ctx.lineTo(corners.bottomRightCorner.x, corners.bottomRightCorner.y);
-  ctx.lineTo(corners.bottomLeftCorner.x, corners.bottomLeftCorner.y);
-  ctx.closePath();
-  ctx.stroke();
+function paintPreview(frame: HTMLCanvasElement, display: HTMLCanvasElement) {
+  const view = viewRect(frame.width, frame.height);
+  display.width = Math.round(view.width);
+  display.height = Math.round(view.height);
+  display
+    .getContext("2d")
+    ?.drawImage(frame, view.x, view.y, view.width, view.height, 0, 0, display.width, display.height);
 }
 
 function todayIso() {
@@ -110,6 +97,50 @@ async function scansToPdf(scans: Scan[]) {
     pdf.addImage(scan.url, "JPEG", 0, 0, size.width, size.height);
   });
   return pdf.output("datauristring").split(",")[1] ?? "";
+}
+
+const VIEW_RATIO = 3 / 4;
+const GUIDE_INSET = 0.08;
+const A4_RATIO = 210 / 297;
+const GUIDE_WIDTH = 1 - GUIDE_INSET * 2;
+const GUIDE_HEIGHT = (GUIDE_WIDTH * VIEW_RATIO) / A4_RATIO;
+
+function viewRect(frameWidth: number, frameHeight: number) {
+  const width = Math.min(frameWidth, frameHeight * VIEW_RATIO);
+  const height = width / VIEW_RATIO;
+  return { x: (frameWidth - width) / 2, y: (frameHeight - height) / 2, width, height };
+}
+
+function focusInView(focus: PaperFocus, frameWidth: number, frameHeight: number): PaperFocus {
+  const view = viewRect(frameWidth, frameHeight);
+  return {
+    scale: focus.scale,
+    originX: (((focus.originX / 100) * frameWidth - view.x) / view.width) * 100,
+    originY: (((focus.originY / 100) * frameHeight - view.y) / view.height) * 100,
+  };
+}
+
+function guideRect(frameWidth: number, frameHeight: number) {
+  const view = viewRect(frameWidth, frameHeight);
+  const width = view.width * GUIDE_WIDTH;
+  const height = view.height * GUIDE_HEIGHT;
+  return {
+    x: (frameWidth - width) / 2,
+    y: (frameHeight - height) / 2,
+    width,
+    height,
+  };
+}
+
+function cropGuide(frame: HTMLCanvasElement) {
+  const rect = guideRect(frame.width, frame.height);
+  const page = document.createElement("canvas");
+  page.width = Math.round(rect.width);
+  page.height = Math.round(rect.height);
+  page
+    .getContext("2d")
+    ?.drawImage(frame, rect.x, rect.y, rect.width, rect.height, 0, 0, page.width, page.height);
+  return page;
 }
 
 function copyFrame(frame: HTMLCanvasElement) {
@@ -180,7 +211,7 @@ export function InvoiceScanner({
         drawFrame(video, frame);
         const corners = readPaperCorners(scanner, frame);
         cornersRef.current = corners;
-        paintPreview(frame, display, corners);
+        paintPreview(frame, display);
       }
       frameId = requestAnimationFrame(highlightLoop);
     };
@@ -247,20 +278,29 @@ export function InvoiceScanner({
     const frame = frameRef.current;
     const scanner = scannerRef.current;
     const corners = cornersRef.current;
-    if (!frame || !scanner || !corners) {
-      toast.error(
-        "No page found. Place the invoice on a plain surface and try again.",
-      );
+    if (!frame?.width || !scanner) {
+      toast.error("The camera is not ready yet. Wait a moment and try again.");
       return;
     }
     const snapshot = copyFrame(frame);
-    const size = paperPixelSize(corners);
     holdRef.current = true;
-    setFocus(focusOnPaper(corners, snapshot.width, snapshot.height));
+    setFocus(
+      corners
+        ? focusInView(
+            focusOnPaper(corners, snapshot.width, snapshot.height),
+            snapshot.width,
+            snapshot.height,
+          )
+        : { originX: 50, originY: 50, scale: 1 / GUIDE_WIDTH },
+    );
     setStatus("focusing");
     window.clearTimeout(focusTimer.current);
     focusTimer.current = window.setTimeout(() => {
-      const page = scanner.extractPaper(snapshot, size.width, size.height, corners);
+      const size = corners ? paperPixelSize(corners) : null;
+      const page =
+        corners && size
+          ? scanner.extractPaper(snapshot, size.width, size.height, corners)
+          : cropGuide(snapshot);
       if (!page) {
         holdRef.current = false;
         setFocus(null);
@@ -338,7 +378,7 @@ export function InvoiceScanner({
           <DialogDescription>
             {mode === "batch"
               ? "Snap each page, then finish to save them as one bill."
-              : "Hold the invoice flat and keep all four corners in view."}
+              : "Fit the invoice inside the frame, then snap."}
           </DialogDescription>
         </DialogHeader>
 
@@ -368,16 +408,11 @@ export function InvoiceScanner({
 
         <div
           className={cn(
-            "relative w-full overflow-hidden rounded-[1.25rem] max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:rounded-none",
+            "relative overflow-hidden rounded-[1.25rem]",
             reviewing
-              ? "bg-ivory/70 p-3"
-              : "flex min-h-0 flex-1 items-center justify-center bg-foreground/90 sm:max-h-[60vh] sm:flex-none",
+              ? "w-full bg-ivory/70 p-3"
+              : "mx-auto flex aspect-[3/4] h-[min(60vh,32rem)] max-w-full shrink-0 items-center justify-center bg-foreground/90",
           )}
-          style={
-            reviewing || portraitCamera
-              ? undefined
-              : { aspectRatio: scan ? `${scan.width} / ${scan.height}` : "4 / 3" }
-          }
         >
           <video ref={videoRef} className="hidden" playsInline muted />
           {reviewing ? (
@@ -411,7 +446,7 @@ export function InvoiceScanner({
               ref={displayRef}
               className={
                 status === "live" || status === "focusing"
-                  ? "h-full w-full object-cover transition-transform duration-300 ease-out sm:object-contain"
+                  ? "h-full w-full transition-transform duration-300 ease-out"
                   : "hidden"
               }
               style={
@@ -423,6 +458,27 @@ export function InvoiceScanner({
                   : undefined
               }
             />
+          )}
+          {status === "live" && !scan && !reviewing && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute rounded-xl border border-dashed border-white/50"
+              style={{
+                left: `${GUIDE_INSET * 100}%`,
+                right: `${GUIDE_INSET * 100}%`,
+                top: `${((1 - GUIDE_HEIGHT) / 2) * 100}%`,
+                bottom: `${((1 - GUIDE_HEIGHT) / 2) * 100}%`,
+              }}
+            >
+              {[
+                "top-0 left-0 border-t-4 border-l-4 rounded-tl-xl",
+                "top-0 right-0 border-t-4 border-r-4 rounded-tr-xl",
+                "bottom-0 left-0 border-b-4 border-l-4 rounded-bl-xl",
+                "bottom-0 right-0 border-b-4 border-r-4 rounded-br-xl",
+              ].map((corner) => (
+                <span key={corner} className={cn("absolute -m-0.5 h-8 w-8 border-lime", corner)} />
+              ))}
+            </div>
           )}
           {status === "starting" && (
             <p className="flex items-center gap-2 text-sm text-white/80">
