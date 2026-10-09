@@ -91,11 +91,11 @@ export const devLoginAsRole = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const parsed = z
       .object({
-        role: z.enum(["User", "HOD"]),
+        role: z.enum(["User", "HOD", "Finance"]),
       })
       .safeParse(input);
     if (!parsed.success) {
-      throw new Error("Pick User or HOD and try again.");
+      throw new Error("Pick a role and try again.");
     }
     return parsed.data;
   })

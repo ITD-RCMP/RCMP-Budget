@@ -141,6 +141,14 @@ function LoginPage() {
             >
               {devRole === "HOD" ? "Signing in…" : "Login as HOD"}
             </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => loginAs("Finance")}
+              className="inline-flex w-full items-center justify-center rounded-full border border-foreground/10 py-3 text-sm text-foreground/70 transition hover:text-foreground disabled:opacity-60"
+            >
+              {devRole === "Finance" ? "Signing in…" : "Login as Finance"}
+            </button>
           </div>
         ) : null}
         <p className="mt-8 text-xs text-foreground/50">

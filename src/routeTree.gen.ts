@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteRouteImport } from './routes/user/route'
 import { Route as HodRouteRouteImport } from './routes/hod/route'
+import { Route as FinanceRouteRouteImport } from './routes/finance/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserIndexRouteImport } from './routes/user/index'
 import { Route as HodIndexRouteImport } from './routes/hod/index'
+import { Route as FinanceIndexRouteImport } from './routes/finance/index'
 import { Route as UserRfqRouteImport } from './routes/user/rfq'
 import { Route as UserDepartmentRouteImport } from './routes/user/department'
 import { Route as UserCalendarRouteImport } from './routes/user/calendar'
@@ -23,6 +25,7 @@ import { Route as HodSettingsRouteImport } from './routes/hod/settings'
 import { Route as HodReportsRouteImport } from './routes/hod/reports'
 import { Route as HodLogsRouteImport } from './routes/hod/logs'
 import { Route as HodCalendarRouteImport } from './routes/hod/calendar'
+import { Route as FinanceBillingRouteImport } from './routes/finance/billing'
 import { Route as UserHistoryRouteRouteImport } from './routes/user/history/route'
 import { Route as UserBillingRouteRouteImport } from './routes/user/billing/route'
 import { Route as HodBillingRouteRouteImport } from './routes/hod/billing/route'
@@ -49,6 +52,11 @@ const HodRouteRoute = HodRouteRouteImport.update({
   path: '/hod',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FinanceRouteRoute = FinanceRouteRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -63,6 +71,11 @@ const HodIndexRoute = HodIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => HodRouteRoute,
+} as any)
+const FinanceIndexRoute = FinanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FinanceRouteRoute,
 } as any)
 const UserRfqRoute = UserRfqRouteImport.update({
   id: '/rfq',
@@ -103,6 +116,11 @@ const HodCalendarRoute = HodCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
   getParentRoute: () => HodRouteRoute,
+} as any)
+const FinanceBillingRoute = FinanceBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => FinanceRouteRoute,
 } as any)
 const UserHistoryRouteRoute = UserHistoryRouteRouteImport.update({
   id: '/history',
@@ -157,12 +175,14 @@ const AuthMicrosoftCallbackRoute = AuthMicrosoftCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/finance': typeof FinanceRouteRouteWithChildren
   '/hod': typeof HodRouteRouteWithChildren
   '/user': typeof UserRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/hod/billing': typeof HodBillingRouteRouteWithChildren
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
+  '/finance/billing': typeof FinanceBillingRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -171,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/rfq': typeof UserRfqRoute
+  '/finance/': typeof FinanceIndexRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
@@ -184,6 +205,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/finance/billing': typeof FinanceBillingRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -192,6 +214,7 @@ export interface FileRoutesByTo {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/rfq': typeof UserRfqRoute
+  '/finance': typeof FinanceIndexRoute
   '/hod': typeof HodIndexRoute
   '/user': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
@@ -205,12 +228,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/finance': typeof FinanceRouteRouteWithChildren
   '/hod': typeof HodRouteRouteWithChildren
   '/user': typeof UserRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/hod/billing': typeof HodBillingRouteRouteWithChildren
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
+  '/finance/billing': typeof FinanceBillingRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -219,6 +244,7 @@ export interface FileRoutesById {
   '/user/calendar': typeof UserCalendarRoute
   '/user/department': typeof UserDepartmentRoute
   '/user/rfq': typeof UserRfqRoute
+  '/finance/': typeof FinanceIndexRoute
   '/hod/': typeof HodIndexRoute
   '/user/': typeof UserIndexRoute
   '/auth/microsoft/callback': typeof AuthMicrosoftCallbackRoute
@@ -233,12 +259,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/finance'
     | '/hod'
     | '/user'
     | '/login'
     | '/hod/billing'
     | '/user/billing'
     | '/user/history'
+    | '/finance/billing'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -247,6 +275,7 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/rfq'
+    | '/finance/'
     | '/hod/'
     | '/user/'
     | '/auth/microsoft/callback'
@@ -260,6 +289,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/finance/billing'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -268,6 +298,7 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/rfq'
+    | '/finance'
     | '/hod'
     | '/user'
     | '/auth/microsoft/callback'
@@ -280,12 +311,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/finance'
     | '/hod'
     | '/user'
     | '/login'
     | '/hod/billing'
     | '/user/billing'
     | '/user/history'
+    | '/finance/billing'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -294,6 +327,7 @@ export interface FileRouteTypes {
     | '/user/calendar'
     | '/user/department'
     | '/user/rfq'
+    | '/finance/'
     | '/hod/'
     | '/user/'
     | '/auth/microsoft/callback'
@@ -307,6 +341,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FinanceRouteRoute: typeof FinanceRouteRouteWithChildren
   HodRouteRoute: typeof HodRouteRouteWithChildren
   UserRouteRoute: typeof UserRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -336,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HodRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/finance': {
+      id: '/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof FinanceRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -356,6 +398,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/hod/'
       preLoaderRoute: typeof HodIndexRouteImport
       parentRoute: typeof HodRouteRoute
+    }
+    '/finance/': {
+      id: '/finance/'
+      path: '/'
+      fullPath: '/finance/'
+      preLoaderRoute: typeof FinanceIndexRouteImport
+      parentRoute: typeof FinanceRouteRoute
     }
     '/user/rfq': {
       id: '/user/rfq'
@@ -412,6 +461,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/hod/calendar'
       preLoaderRoute: typeof HodCalendarRouteImport
       parentRoute: typeof HodRouteRoute
+    }
+    '/finance/billing': {
+      id: '/finance/billing'
+      path: '/billing'
+      fullPath: '/finance/billing'
+      preLoaderRoute: typeof FinanceBillingRouteImport
+      parentRoute: typeof FinanceRouteRoute
     }
     '/user/history': {
       id: '/user/history'
@@ -485,6 +541,20 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface FinanceRouteRouteChildren {
+  FinanceBillingRoute: typeof FinanceBillingRoute
+  FinanceIndexRoute: typeof FinanceIndexRoute
+}
+
+const FinanceRouteRouteChildren: FinanceRouteRouteChildren = {
+  FinanceBillingRoute: FinanceBillingRoute,
+  FinanceIndexRoute: FinanceIndexRoute,
+}
+
+const FinanceRouteRouteWithChildren = FinanceRouteRoute._addFileChildren(
+  FinanceRouteRouteChildren,
+)
 
 interface HodBillingRouteRouteChildren {
   HodBillingBillingIdRoute: typeof HodBillingBillingIdRoute
@@ -574,6 +644,7 @@ const UserRouteRouteWithChildren = UserRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FinanceRouteRoute: FinanceRouteRouteWithChildren,
   HodRouteRoute: HodRouteRouteWithChildren,
   UserRouteRoute: UserRouteRouteWithChildren,
   LoginRoute: LoginRoute,
