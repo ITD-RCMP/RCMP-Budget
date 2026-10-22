@@ -9,8 +9,10 @@ import {
   FileText,
   Loader2,
   Mail,
+  Pencil,
   Receipt,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,8 +20,20 @@ import { Sidebar as UserSidebar } from "./sidebar";
 import { Sidebar as HodSidebar } from "@/features/hod/sidebar";
 import { InvoiceScanner } from "./invoiceScanner";
 import { BillingEmailDialog } from "./billingEmailDialog";
+import { BillingEditDialog } from "./billingEditDialog";
 import { Input } from "@/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  deleteBilling,
   getBillingPdf,
   listBillings,
   type Billing,
@@ -35,8 +49,8 @@ function pageItems(current: number, total: number) {
   return [1, "…", current, "…", total] as const;
 }
 
-const actionButton =
-  "inline-flex items-center gap-1.5 rounded-full border border-foreground/15 px-3 py-1.5 text-xs text-foreground/70 transition hover:bg-ivory disabled:opacity-50";
+const iconActionButton =
+  "inline-flex h-8 w-8 items-center justify-center rounded-full border border-foreground/15 text-foreground/70 transition hover:bg-ivory disabled:opacity-40";
 
 const filterField =
   "h-11 rounded-2xl border-foreground/10 bg-ivory/70 px-3.5 text-sm shadow-none focus-visible:ring-foreground/15 [&::-webkit-calendar-picker-indicator]:opacity-40";
@@ -79,6 +93,8 @@ export function BillingPage({ area = "user" }: { area?: "user" | "hod" }) {
   const queryClient = useQueryClient();
   const [scannerOpen, setScannerOpen] = useState(false);
   const [emailBilling, setEmailBilling] = useState<Billing | null>(null);
+  const [editBilling, setEditBilling] = useState<Billing | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Billing | null>(null);
   const [preview, setPreview] = useState<{ title: string; url: string } | null>(null);
   const [month, setMonth] = useState("");
   const [date, setDate] = useState("");
@@ -116,6 +132,19 @@ export function BillingPage({ area = "user" }: { area?: "user" | "hod" }) {
       });
     },
     onError: (error) => toast.error(errorText(error, "Could not open the PDF. Please try again.")),
+  });
+
+  const removeBilling = useMutation({
+    mutationFn: (billingId: number) => deleteBilling({ data: { billingId } }),
+    onSuccess: () => {
+      toast.success("Invoice deleted.");
+      setDeleteTarget(null);
+      void refresh();
+    },
+    onError: (error) => {
+      toast.error(errorText(error, "Could not delete this invoice. Please try again."));
+      setDeleteTarget(null);
+    },
   });
 
   const visible = useMemo(() => {
@@ -270,6 +299,8 @@ export function BillingPage({ area = "user" }: { area?: "user" | "hod" }) {
                         pdfPending={viewPdf.isPending}
                         onPdf={() => viewPdf.mutate(row.id)}
                         onEmail={() => setEmailBilling(row)}
+                        onEdit={() => setEditBilling(row)}
+                        onDelete={() => setDeleteTarget(row)}
                       />
                     </li>
                   ))}
@@ -305,6 +336,8 @@ export function BillingPage({ area = "user" }: { area?: "user" | "hod" }) {
                             pdfPending={viewPdf.isPending}
                             onPdf={() => viewPdf.mutate(row.id)}
                             onEmail={() => setEmailBilling(row)}
+                            onEdit={() => setEditBilling(row)}
+                            onDelete={() => setDeleteTarget(row)}
                           />
                         </td>
                         <td className="px-2 py-3 text-right font-medium tabular-nums whitespace-nowrap">
@@ -384,6 +417,38 @@ export function BillingPage({ area = "user" }: { area?: "user" | "hod" }) {
         onSaved={() => void refresh()}
       />
       <BillingEmailDialog billing={emailBilling} onClose={() => setEmailBilling(null)} />
+      <BillingEditDialog billing={editBilling} onClose={() => setEditBilling(null)} />
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this invoice?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `${deleteTarget.invoiceRef} from ${deleteTarget.supplier} will be removed. This cannot be undone.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeBilling.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeBilling.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) removeBilling.mutate(deleteTarget.id);
+              }}
+            >
+              {removeBilling.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {preview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 sm:p-4 md:p-8">
           <div
@@ -426,12 +491,16 @@ function LedgerParticulars({
   pdfPending,
   onPdf,
   onEmail,
+  onEdit,
+  onDelete,
 }: {
   row: Billing;
   area: "user" | "hod";
   pdfPending: boolean;
   onPdf: () => void;
   onEmail: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <>
@@ -452,35 +521,54 @@ function LedgerParticulars({
           ? `Acknowledged ${row.acknowledgedName} · ${formatDateTime(row.acknowledgedAt)}`
           : "Not acknowledged"}
       </p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           disabled={!row.hasPdf || !row.acknowledgedAt || pdfPending}
-          title={row.acknowledgedAt ? undefined : "Acknowledge this invoice first."}
+          title={row.acknowledgedAt ? "View PDF" : "Acknowledge this invoice first."}
+          aria-label="View PDF"
           onClick={onPdf}
-          className={actionButton}
+          className={iconActionButton}
         >
-          <FileText className="h-3.5 w-3.5" />
-          PDF
+          <FileText className="h-4 w-4" />
         </button>
         <button
           type="button"
           disabled={!row.hasPdf || !row.acknowledgedAt}
-          title={row.acknowledgedAt ? undefined : "Acknowledge this invoice first."}
+          title={row.acknowledgedAt ? (row.emailSentAt ? "Resend email" : "Send email") : "Acknowledge this invoice first."}
+          aria-label={row.emailSentAt ? "Resend email" : "Send email"}
           onClick={onEmail}
-          className={actionButton}
+          className={iconActionButton}
         >
-          <Mail className="h-3.5 w-3.5" />
-          {row.emailSentAt ? "Resend" : "Send email"}
+          <Mail className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="Edit invoice"
+          aria-label="Edit invoice"
+          onClick={onEdit}
+          className={iconActionButton}
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="Delete invoice"
+          aria-label="Delete invoice"
+          onClick={onDelete}
+          className={iconActionButton}
+        >
+          <Trash2 className="h-4 w-4" />
         </button>
         {!row.acknowledgedAt && (
           <Link
             to={area === "hod" ? "/hod/billing/$billingId" : "/user/billing/$billingId"}
             params={{ billingId: String(row.id) }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3 py-1.5 text-xs font-medium text-lime-foreground transition hover:brightness-95"
+            title="Acknowledge invoice"
+            aria-label="Acknowledge invoice"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-lime text-lime-foreground transition hover:brightness-95"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Acknowledge
+            <CheckCircle2 className="h-4 w-4" />
           </Link>
         )}
       </div>

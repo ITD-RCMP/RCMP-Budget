@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, type LinkProps } from "@tanstack/react-router";
-import { LayoutDashboard, LogOut, Menu, Receipt, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Receipt, Wallet, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Wordmark } from "@/components/landing/Nav";
 import { getCurrentUser, logout } from "@backend/server-functions/auth-fns";
@@ -15,6 +15,7 @@ import {
 
 const items: { label: string; icon: LucideIcon; to: LinkProps["to"]; exact?: boolean }[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/finance" },
+  { label: "Budget", icon: Wallet, to: "/finance/budget" },
   { label: "Billing", icon: Receipt, to: "/finance/billing", exact: false },
 ];
 

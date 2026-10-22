@@ -7,7 +7,7 @@ export const Route = createFileRoute("/finance/billing")({
       { title: "Billing — Budget Tracker" },
       {
         name: "description",
-        content: "Finance billing workspace.",
+        content: "Invoices submitted by each department.",
       },
     ],
   }),

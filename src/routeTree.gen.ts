@@ -25,6 +25,7 @@ import { Route as HodSettingsRouteImport } from './routes/hod/settings'
 import { Route as HodReportsRouteImport } from './routes/hod/reports'
 import { Route as HodLogsRouteImport } from './routes/hod/logs'
 import { Route as HodCalendarRouteImport } from './routes/hod/calendar'
+import { Route as FinanceBudgetRouteImport } from './routes/finance/budget'
 import { Route as FinanceBillingRouteImport } from './routes/finance/billing'
 import { Route as UserHistoryRouteRouteImport } from './routes/user/history/route'
 import { Route as UserBillingRouteRouteImport } from './routes/user/billing/route'
@@ -117,6 +118,11 @@ const HodCalendarRoute = HodCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => HodRouteRoute,
 } as any)
+const FinanceBudgetRoute = FinanceBudgetRouteImport.update({
+  id: '/budget',
+  path: '/budget',
+  getParentRoute: () => FinanceRouteRoute,
+} as any)
 const FinanceBillingRoute = FinanceBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
   '/finance/billing': typeof FinanceBillingRoute
+  '/finance/budget': typeof FinanceBudgetRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/finance/billing': typeof FinanceBillingRoute
+  '/finance/budget': typeof FinanceBudgetRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/user/billing': typeof UserBillingRouteRouteWithChildren
   '/user/history': typeof UserHistoryRouteRouteWithChildren
   '/finance/billing': typeof FinanceBillingRoute
+  '/finance/budget': typeof FinanceBudgetRoute
   '/hod/calendar': typeof HodCalendarRoute
   '/hod/logs': typeof HodLogsRoute
   '/hod/reports': typeof HodReportsRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/user/billing'
     | '/user/history'
     | '/finance/billing'
+    | '/finance/budget'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/finance/billing'
+    | '/finance/budget'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/user/billing'
     | '/user/history'
     | '/finance/billing'
+    | '/finance/budget'
     | '/hod/calendar'
     | '/hod/logs'
     | '/hod/reports'
@@ -462,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HodCalendarRouteImport
       parentRoute: typeof HodRouteRoute
     }
+    '/finance/budget': {
+      id: '/finance/budget'
+      path: '/budget'
+      fullPath: '/finance/budget'
+      preLoaderRoute: typeof FinanceBudgetRouteImport
+      parentRoute: typeof FinanceRouteRoute
+    }
     '/finance/billing': {
       id: '/finance/billing'
       path: '/billing'
@@ -544,11 +563,13 @@ declare module '@tanstack/react-router' {
 
 interface FinanceRouteRouteChildren {
   FinanceBillingRoute: typeof FinanceBillingRoute
+  FinanceBudgetRoute: typeof FinanceBudgetRoute
   FinanceIndexRoute: typeof FinanceIndexRoute
 }
 
 const FinanceRouteRouteChildren: FinanceRouteRouteChildren = {
   FinanceBillingRoute: FinanceBillingRoute,
+  FinanceBudgetRoute: FinanceBudgetRoute,
   FinanceIndexRoute: FinanceIndexRoute,
 }
 

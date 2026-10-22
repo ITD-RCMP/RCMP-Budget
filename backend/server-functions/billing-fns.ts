@@ -9,6 +9,7 @@ import {
 } from "@/lib/received-stamp";
 
 const billingAccess = roleMiddleware("User", "HOD");
+const financeAccess = roleMiddleware("Finance");
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -28,6 +29,10 @@ export type Billing = {
   createdAt: string;
 };
 
+export type FinanceBilling = Billing & {
+  departmentName: string;
+};
+
 type BillingRow = {
   billing_id: number;
   invoice_ref: string;
@@ -42,6 +47,7 @@ type BillingRow = {
   acknowledged_name: string | null;
   acknowledged_at: Date | string | null;
   created_at: Date | string;
+  department_name?: string;
 };
 
 function toIso(value: Date | string | null) {
@@ -70,6 +76,13 @@ function toBilling(row: BillingRow): Billing {
     acknowledgedName: row.acknowledged_name,
     acknowledgedAt: toIso(row.acknowledged_at),
     createdAt: toIso(row.created_at) ?? "",
+  };
+}
+
+function toFinanceBilling(row: BillingRow): FinanceBilling {
+  return {
+    ...toBilling(row),
+    departmentName: row.department_name ?? "No department",
   };
 }
 
@@ -155,6 +168,43 @@ async function nextInvoiceRef(
   const sequence = Number(rows[0]?.seq ?? 0) + 1;
   return `INV-${year}-${String(sequence).padStart(4, "0")}`;
 }
+
+export const listFinanceBillings = createServerFn({ method: "GET" })
+  .middleware([financeAccess])
+  .handler(async (): Promise<FinanceBilling[]> => {
+    const { query } = await import("@backend/core/db");
+    const rows = await query<BillingRow[]>(
+      `SELECT b.*, u.email AS creator_email, d.department_name
+       FROM billings b
+       INNER JOIN users u ON u.user_id = b.created_by
+       INNER JOIN departments d ON d.department_id = b.department_id
+       ORDER BY d.department_name ASC, b.invoice_date DESC, b.billing_id DESC`,
+    );
+    return rows.map(toFinanceBilling);
+  });
+
+export const getFinanceBillingPdf = createServerFn({ method: "GET" })
+  .validator(billingIdSchema)
+  .middleware([financeAccess])
+  .handler(async ({ data }): Promise<{ fileName: string; data: string }> => {
+    const { query } = await import("@backend/core/db");
+    const rows = await query<BillingRow[]>(
+      `SELECT b.*, u.email AS creator_email
+       FROM billings b
+       INNER JOIN users u ON u.user_id = b.created_by
+       WHERE b.billing_id = ?
+       LIMIT 1`,
+      [data.billingId],
+    );
+    const row = rows[0];
+    if (!row) throw new Error("This bill was not found. Refresh the page and try again.");
+    if (!row.pdf_path) throw new Error("This bill has no PDF yet. Ask the department to scan it.");
+    const pdf = await readPdf(row.pdf_path);
+    return {
+      fileName: `${row.invoice_ref}.pdf`,
+      data: pdf.toString("base64"),
+    };
+  });
 
 export const listBillings = createServerFn({ method: "GET" })
   .middleware([billingAccess])
@@ -316,6 +366,44 @@ export const getBilling = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<Billing> => {
     const row = await findBilling(context.user, data.billingId);
     return toBilling(row);
+  });
+
+export const updateBilling = createServerFn({ method: "POST" })
+  .validator(
+    billingIdSchema.extend({
+      supplier: z.string().trim().min(1).max(255),
+      invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      totalInvoice: z.number().positive().max(99999999.99),
+    }),
+  )
+  .middleware([billingAccess])
+  .handler(async ({ data, context }): Promise<void> => {
+    const row = await findBilling(context.user, data.billingId);
+    const { query } = await import("@backend/core/db");
+    await query(
+      `UPDATE billings
+       SET supplier = ?, invoice_date = ?, total_invoice = ?
+       WHERE billing_id = ?`,
+      [
+        data.supplier,
+        data.invoiceDate,
+        Math.round(data.totalInvoice * 100) / 100,
+        row.billing_id,
+      ],
+    );
+  });
+
+export const deleteBilling = createServerFn({ method: "POST" })
+  .validator(billingIdSchema)
+  .middleware([billingAccess])
+  .handler(async ({ data, context }): Promise<void> => {
+    const row = await findBilling(context.user, data.billingId);
+    const { query } = await import("@backend/core/db");
+    await query(`DELETE FROM billings WHERE billing_id = ?`, [row.billing_id]);
+    if (row.pdf_path) {
+      const { unlink } = await import("node:fs/promises");
+      await unlink(await absolutePdfPath(row.pdf_path)).catch(() => undefined);
+    }
   });
 
 export const acknowledgeBilling = createServerFn({ method: "POST" })
