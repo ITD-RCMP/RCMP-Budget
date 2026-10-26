@@ -3,10 +3,15 @@ import { z } from "zod";
 import { roleMiddleware } from "@backend/core/middleware";
 import type { AuthUser } from "@/lib/auth";
 import {
+  DEFAULT_STAMP_POSITION,
   receivedStampDate,
   receivedStampDepartment,
   stampReceivedPdf,
 } from "@/lib/received-stamp";
+
+const stampPositionSchema = z
+  .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+  .optional();
 
 const billingAccess = roleMiddleware("User", "HOD");
 const financeAccess = roleMiddleware("Finance");
@@ -410,6 +415,7 @@ export const acknowledgeBilling = createServerFn({ method: "POST" })
   .validator(
     billingIdSchema.extend({
       confirmed: z.boolean(),
+      stampPosition: stampPositionSchema,
     }),
   )
   .middleware([billingAccess])
@@ -424,11 +430,15 @@ export const acknowledgeBilling = createServerFn({ method: "POST" })
 
     const staffName = user.fullName || user.email;
     const target = invoicePdfRelative(toDateOnly(row.invoice_date), row.invoice_ref);
-    const stamped = await stampReceivedPdf(await readPdf(row.pdf_path), {
-      staffName,
-      receivedOn: receivedStampDate(),
-      department: receivedStampDepartment,
-    });
+    const stamped = await stampReceivedPdf(
+      await readPdf(row.pdf_path),
+      {
+        staffName,
+        receivedOn: receivedStampDate(),
+        department: receivedStampDepartment,
+      },
+      data.stampPosition ?? DEFAULT_STAMP_POSITION,
+    );
     await writePdf(target, stamped);
     if (row.pdf_path !== target) {
       const { unlink } = await import("node:fs/promises");

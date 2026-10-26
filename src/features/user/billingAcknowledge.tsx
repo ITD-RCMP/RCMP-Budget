@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
@@ -8,9 +8,11 @@ import { Sidebar as HodSidebar } from "@/features/hod/sidebar";
 import { cn } from "@/lib/utils";
 import { getCurrentUser } from "@backend/server-functions/auth-fns";
 import {
+  DEFAULT_STAMP_POSITION,
   receivedStampDate,
   receivedStampDepartment,
   stampReceivedPdf,
+  type StampPosition,
 } from "@/lib/received-stamp";
 import {
   acknowledgeBilling,
@@ -20,6 +22,54 @@ import {
 
 function pdfBytes(data: string) {
   return Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+}
+
+function StampPositionPicker({
+  value,
+  onChange,
+}: {
+  value: StampPosition;
+  onChange: (position: StampPosition) => void;
+}) {
+  const padRef = useRef<HTMLDivElement>(null);
+
+  const moveTo = (clientX: number, clientY: number) => {
+    const pad = padRef.current;
+    if (!pad) return;
+    const rect = pad.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, 1 - (clientY - rect.top) / rect.height));
+    onChange({ x, y });
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        ref={padRef}
+        role="slider"
+        aria-label="Stamp position on the page"
+        aria-valuetext={`${Math.round(value.x * 100)}% across, ${Math.round(value.y * 100)}% up`}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          moveTo(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (event.buttons !== 1) return;
+          moveTo(event.clientX, event.clientY);
+        }}
+        className="relative h-24 w-[4.5rem] shrink-0 cursor-crosshair rounded-md border border-foreground/20 bg-white sm:h-28 sm:w-20"
+      >
+        <span
+          className="absolute h-3 w-3 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-lime-foreground bg-lime"
+          style={{ left: `${value.x * 100}%`, bottom: `${value.y * 100}%` }}
+        />
+      </div>
+      <p className="text-xs leading-snug text-foreground/60">
+        Drag inside the box to choose where the "RECEIVED" stamp lands on the invoice page,
+        then submit.
+      </p>
+    </div>
+  );
 }
 
 export function BillingAcknowledgePage({
@@ -34,6 +84,7 @@ export function BillingAcknowledgePage({
   const [ticked, setTicked] = useState(false);
   const [pdfSrc, setPdfSrc] = useState<string | null>(null);
   const [pdfFailed, setPdfFailed] = useState(false);
+  const [stampPosition, setStampPosition] = useState<StampPosition>(DEFAULT_STAMP_POSITION);
 
   const billing = useQuery({
     queryKey: ["billing", billingId],
@@ -62,11 +113,15 @@ export function BillingAcknowledgePage({
       let bytes = pdfBytes(pdf.data.data);
       if (!billing.data.acknowledgedAt) {
         const staff = currentUser.data?.fullName || currentUser.data?.email || "Staff";
-        bytes = await stampReceivedPdf(bytes, {
-          staffName: staff,
-          receivedOn: receivedStampDate(),
-          department: receivedStampDepartment,
-        });
+        bytes = await stampReceivedPdf(
+          bytes,
+          {
+            staffName: staff,
+            receivedOn: receivedStampDate(),
+            department: receivedStampDepartment,
+          },
+          stampPosition,
+        );
       }
       if (cancelled) return;
       url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
@@ -84,7 +139,7 @@ export function BillingAcknowledgePage({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [pdf.data, billing.data, currentUser.isPending, currentUser.data]);
+  }, [pdf.data, billing.data, currentUser.isPending, currentUser.data, stampPosition]);
 
   useEffect(() => {
     if (!billing.isError) return;
@@ -99,7 +154,7 @@ export function BillingAcknowledgePage({
   const submit = useMutation({
     mutationFn: () =>
       acknowledgeBilling({
-        data: { billingId, confirmed: ticked },
+        data: { billingId, confirmed: ticked, stampPosition },
       }),
     onSuccess: () => {
       toast.success("Bill acknowledged.");
@@ -171,6 +226,9 @@ export function BillingAcknowledgePage({
               submit.mutate();
             }}
           >
+            <div className="mb-3 rounded-[1.25rem] bg-ivory/70 p-3">
+              <StampPositionPicker value={stampPosition} onChange={setStampPosition} />
+            </div>
             <div className="flex flex-col gap-3 rounded-[1.25rem] bg-ivory/70 p-3 sm:flex-row sm:items-center sm:rounded-full sm:py-1.5 sm:pr-1.5 sm:pl-4">
               <button
                 type="button"

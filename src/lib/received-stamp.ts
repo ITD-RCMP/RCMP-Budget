@@ -33,6 +33,15 @@ type StampDetails = {
   department: string;
 };
 
+export type StampPosition = { x: number; y: number };
+
+export const DEFAULT_STAMP_POSITION: StampPosition = { x: 0, y: 0 };
+
+function clampRatio(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
 type StampFonts = { bold: PDFFont; regular: PDFFont; mono: PDFFont };
 
 function spacedWidth(font: PDFFont, text: string, size: number, tracking: number) {
@@ -89,7 +98,13 @@ function drawWear(page: PDFPage, width: number, height: number, seed: number) {
   }
 }
 
-function drawStamp(page: PDFPage, fonts: StampFonts, stamp: StampDetails, seed: number) {
+function drawStamp(
+  page: PDFPage,
+  fonts: StampFonts,
+  stamp: StampDetails,
+  seed: number,
+  position: StampPosition,
+) {
   const { width: pageWidth, height: pageHeight } = page.getSize();
   const width = Math.min(250, Math.max(176, pageWidth * 0.4));
   const height = width * 0.5;
@@ -97,8 +112,10 @@ function drawStamp(page: PDFPage, fonts: StampFonts, stamp: StampDetails, seed: 
   const angle = (TILT_DEGREES * Math.PI) / 180;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  const originX = margin;
-  const originY = margin + Math.max(0, -sin * width);
+  const travelX = Math.max(0, pageWidth - width - margin * 2);
+  const travelY = Math.max(0, pageHeight - height - margin * 2);
+  const originX = margin + clampRatio(position.x) * travelX;
+  const originY = margin + clampRatio(position.y) * travelY + Math.max(0, -sin * width);
 
   page.pushOperators(
     pushGraphicsState(),
@@ -179,6 +196,7 @@ function drawStamp(page: PDFPage, fonts: StampFonts, stamp: StampDetails, seed: 
 export async function stampReceivedPdf(
   input: Uint8Array<ArrayBuffer>,
   stamp: StampDetails,
+  position: StampPosition = DEFAULT_STAMP_POSITION,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = Uint8Array.from(input);
   const doc = await PDFDocument.load(bytes);
@@ -193,7 +211,10 @@ export async function stampReceivedPdf(
     receivedOn: stamp.receivedOn.trim().toUpperCase(),
     department: stamp.department.trim().toUpperCase(),
   };
-  doc.getPages().forEach((page, index) => drawStamp(page, fonts, details, 7919 * (index + 1)));
+  const resolvedPosition = { x: clampRatio(position.x), y: clampRatio(position.y) };
+  doc
+    .getPages()
+    .forEach((page, index) => drawStamp(page, fonts, details, 7919 * (index + 1), resolvedPosition));
   doc.setSubject(STAMP_MARK);
   return Uint8Array.from(await doc.save());
 }
