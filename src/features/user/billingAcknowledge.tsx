@@ -24,6 +24,18 @@ function pdfBytes(data: string) {
   return Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
 }
 
+const STAMP_PRESETS: { label: string; position: StampPosition }[] = [
+  { label: "Top left", position: { x: 0, y: 1 } },
+  { label: "Top right", position: { x: 1, y: 1 } },
+  { label: "Bottom left", position: { x: 0, y: 0 } },
+  { label: "Bottom right", position: { x: 1, y: 0 } },
+];
+
+// Approximates the real stamp's footprint (see src/lib/received-stamp.ts) so the
+// preview box lines up with where the stamp will actually land on the PDF.
+const STAMP_PREVIEW_WIDTH_PCT = 40;
+const STAMP_PREVIEW_HEIGHT_PCT = 20;
+
 function StampPositionPicker({
   value,
   onChange,
@@ -42,8 +54,19 @@ function StampPositionPicker({
     onChange({ x, y });
   };
 
+  const isPreset = (preset: StampPosition) =>
+    Math.abs(preset.x - value.x) < 0.01 && Math.abs(preset.y - value.y) < 0.01;
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3">
+      <div>
+        <p className="text-sm font-medium text-foreground">Stamp position</p>
+        <p className="mt-0.5 text-xs leading-snug text-foreground/60">
+          Choose where the red "RECEIVED" stamp appears on the invoice. Pick a corner or drag the
+          outline below — the preview on the left updates right away.
+        </p>
+      </div>
+
       <div
         ref={padRef}
         role="slider"
@@ -57,16 +80,44 @@ function StampPositionPicker({
           if (event.buttons !== 1) return;
           moveTo(event.clientX, event.clientY);
         }}
-        className="relative h-24 w-[4.5rem] shrink-0 cursor-crosshair rounded-md border border-foreground/20 bg-white sm:h-28 sm:w-20"
+        className="relative mx-auto aspect-[1/1.414] w-full max-w-48 cursor-crosshair touch-none rounded-sm border border-foreground/20 bg-white shadow-sm"
       >
-        <span
-          className="absolute h-3 w-3 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-lime-foreground bg-lime"
-          style={{ left: `${value.x * 100}%`, bottom: `${value.y * 100}%` }}
-        />
+        <div
+          className="absolute flex items-center justify-center rounded-[2px] border-2 border-dashed border-rose-500/70 bg-rose-500/10"
+          style={{
+            width: `${STAMP_PREVIEW_WIDTH_PCT}%`,
+            height: `${STAMP_PREVIEW_HEIGHT_PCT}%`,
+            left: `${value.x * (100 - STAMP_PREVIEW_WIDTH_PCT)}%`,
+            bottom: `${value.y * (100 - STAMP_PREVIEW_HEIGHT_PCT)}%`,
+          }}
+        >
+          <span className="text-[6px] font-bold tracking-wide text-rose-600 sm:text-[7px]">
+            RECEIVED
+          </span>
+        </div>
       </div>
-      <p className="text-xs leading-snug text-foreground/60">
-        Drag inside the box to choose where the "RECEIVED" stamp lands on the invoice page,
-        then submit.
+
+      <div className="grid grid-cols-2 gap-2">
+        {STAMP_PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            type="button"
+            onClick={() => onChange(preset.position)}
+            aria-pressed={isPreset(preset.position)}
+            className={cn(
+              "rounded-lg border px-3 py-2 text-left text-xs font-medium transition",
+              isPreset(preset.position)
+                ? "border-transparent bg-lime text-lime-foreground"
+                : "border-foreground/15 text-foreground/70 hover:border-foreground/30",
+            )}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-foreground/50">
+        Custom: {Math.round(value.x * 100)}% across, {Math.round(value.y * 100)}% up from the
+        bottom.
       </p>
     </div>
   );
@@ -85,6 +136,15 @@ export function BillingAcknowledgePage({
   const [pdfSrc, setPdfSrc] = useState<string | null>(null);
   const [pdfFailed, setPdfFailed] = useState(false);
   const [stampPosition, setStampPosition] = useState<StampPosition>(DEFAULT_STAMP_POSITION);
+  const [previewPosition, setPreviewPosition] = useState<StampPosition>(DEFAULT_STAMP_POSITION);
+  const [isUpdatingStamp, setIsUpdatingStamp] = useState(false);
+
+  // Only regenerate the (relatively expensive) stamped PDF preview once the user
+  // pauses dragging, so the page doesn't reload on every pointer move.
+  useEffect(() => {
+    const id = setTimeout(() => setPreviewPosition(stampPosition), 250);
+    return () => clearTimeout(id);
+  }, [stampPosition]);
 
   const billing = useQuery({
     queryKey: ["billing", billingId],
@@ -112,6 +172,7 @@ export function BillingAcknowledgePage({
     const open = async () => {
       let bytes = pdfBytes(pdf.data.data);
       if (!billing.data.acknowledgedAt) {
+        setIsUpdatingStamp(true);
         const staff = currentUser.data?.fullName || currentUser.data?.email || "Staff";
         bytes = await stampReceivedPdf(
           bytes,
@@ -120,7 +181,7 @@ export function BillingAcknowledgePage({
             receivedOn: receivedStampDate(),
             department: receivedStampDepartment,
           },
-          stampPosition,
+          previewPosition,
         );
       }
       if (cancelled) return;
@@ -128,18 +189,22 @@ export function BillingAcknowledgePage({
       setPdfSrc(url);
     };
 
-    void open().catch(() => {
-      if (!cancelled) {
-        setPdfSrc(null);
-        setPdfFailed(true);
-      }
-    });
+    void open()
+      .catch(() => {
+        if (!cancelled) {
+          setPdfSrc(null);
+          setPdfFailed(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsUpdatingStamp(false);
+      });
 
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [pdf.data, billing.data, currentUser.isPending, currentUser.data, stampPosition]);
+  }, [pdf.data, billing.data, currentUser.isPending, currentUser.data, previewPosition]);
 
   useEffect(() => {
     if (!billing.isError) return;
@@ -198,66 +263,76 @@ export function BillingAcknowledgePage({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 px-4 py-4 sm:px-8 sm:py-6 md:px-12">
-          {pdf.isPending || billing.isPending || currentUser.isPending || (!pdfSrc && !pdfFailed && !pdf.isError) ? (
-            <p className="flex h-full items-center justify-center gap-2 text-sm text-foreground/60">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Opening the invoice…
-            </p>
-          ) : pdf.isError || pdfFailed || !pdfSrc ? (
-            <p className="flex h-full items-center justify-center text-sm text-foreground/60">
-              This invoice could not be opened. Go back and try again.
-            </p>
-          ) : (
-            <iframe
-              title={bill?.invoiceRef ?? "Invoice PDF"}
-              src={pdfSrc}
-              className="h-full w-full rounded-[1.25rem] bg-white"
-            />
+        <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 sm:px-8 sm:py-6 md:px-12 lg:flex-row">
+          <div className="relative min-h-0 flex-1">
+            {pdf.isPending || billing.isPending || currentUser.isPending || (!pdfSrc && !pdfFailed && !pdf.isError) ? (
+              <p className="flex h-full items-center justify-center gap-2 text-sm text-foreground/60">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Opening the invoice…
+              </p>
+            ) : pdf.isError || pdfFailed || !pdfSrc ? (
+              <p className="flex h-full items-center justify-center text-sm text-foreground/60">
+                This invoice could not be opened. Go back and try again.
+              </p>
+            ) : (
+              <>
+                <iframe
+                  title={bill?.invoiceRef ?? "Invoice PDF"}
+                  src={pdfSrc}
+                  className="h-full w-full rounded-[1.25rem] bg-white"
+                />
+                {isUpdatingStamp && (
+                  <div className="pointer-events-none absolute top-7 right-7 flex items-center gap-2 rounded-full bg-foreground/80 px-3 py-1.5 text-xs font-medium text-ivory shadow-lg sm:top-9 sm:right-11">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Moving stamp…
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {bill && !bill.acknowledgedAt && (
+            <form
+              className="flex w-full shrink-0 flex-col gap-3 lg:w-72 lg:overflow-y-auto xl:w-80"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!ticked || submit.isPending) return;
+                submit.mutate();
+              }}
+            >
+              <div className="rounded-[1.25rem] bg-ivory/70 p-4 sm:p-5">
+                <StampPositionPicker value={stampPosition} onChange={setStampPosition} />
+              </div>
+              <div className="flex flex-col gap-3 rounded-[1.25rem] bg-ivory/70 p-3">
+                <button
+                  type="button"
+                  aria-pressed={ticked}
+                  onClick={() => setTicked((value) => !value)}
+                  className="flex min-w-0 items-center gap-3 text-left text-sm text-foreground/70"
+                >
+                  <span
+                    className={cn(
+                      "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition",
+                      ticked
+                        ? "border-transparent bg-lime text-lime-foreground"
+                        : "border-foreground/20",
+                    )}
+                  >
+                    {ticked && <Check className="h-3 w-3" strokeWidth={3} />}
+                  </span>
+                  I acknowledge this invoice.
+                </button>
+                <button
+                  type="submit"
+                  disabled={!ticked || submit.isPending}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-lime px-5 text-sm font-medium text-lime-foreground transition hover:brightness-95 disabled:opacity-50 sm:h-9"
+                >
+                  {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}
+                </button>
+              </div>
+            </form>
           )}
         </div>
-
-        {bill && !bill.acknowledgedAt && (
-          <form
-            className="px-4 pb-4 sm:px-8 sm:pb-8 md:px-12"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!ticked || submit.isPending) return;
-              submit.mutate();
-            }}
-          >
-            <div className="mb-3 rounded-[1.25rem] bg-ivory/70 p-3">
-              <StampPositionPicker value={stampPosition} onChange={setStampPosition} />
-            </div>
-            <div className="flex flex-col gap-3 rounded-[1.25rem] bg-ivory/70 p-3 sm:flex-row sm:items-center sm:rounded-full sm:py-1.5 sm:pr-1.5 sm:pl-4">
-              <button
-                type="button"
-                aria-pressed={ticked}
-                onClick={() => setTicked((value) => !value)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm text-foreground/70"
-              >
-                <span
-                  className={cn(
-                    "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition",
-                    ticked
-                      ? "border-transparent bg-lime text-lime-foreground"
-                      : "border-foreground/20",
-                  )}
-                >
-                  {ticked && <Check className="h-3 w-3" strokeWidth={3} />}
-                </span>
-                I acknowledge this invoice.
-              </button>
-              <button
-                type="submit"
-                disabled={!ticked || submit.isPending}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-lime px-5 text-sm font-medium text-lime-foreground transition hover:brightness-95 disabled:opacity-50 sm:h-9 sm:w-auto"
-              >
-                {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit"}
-              </button>
-            </div>
-          </form>
-        )}
       </main>
     </div>
   );
